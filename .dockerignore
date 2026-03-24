@@ -1,0 +1,37 @@
+# Build outputs
+bin/
+obj/
+*.dll
+*.exe
+*.pdb
+
+# Test files
+BackendVBNet.Tests/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Documentation
+docs/
+
+# Git
+.git/
+.gitignore
+
+# Docker
+Dockerfile
+.dockerignore
+
+# Other
+*.tmp
+*.bak
