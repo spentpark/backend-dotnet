@@ -1,5 +1,11 @@
 pipeline {
-    agent any
+    agent {
+        docker {
+            image 'mcr.microsoft.com/dotnet/sdk:8.0'
+            args '-u root'
+        }
+    }
+
 
     environment {
         // Nexus Config
@@ -31,13 +37,13 @@ pipeline {
 
         stage('Build') {
             steps {
-                sh 'dotnet build --configuration Release --no-restore'
+                sh 'dotnet build --no-restore'
             }
         }
 
         stage('Run Tests') {
             steps {
-                sh 'dotnet test --configuration Release --no-build --verbosity normal --logger "trx;LogFileName=test-results.trx"'
+                sh 'dotnet test --no-build'
             }
         }
 
