@@ -1,23 +1,19 @@
 Imports Microsoft.AspNetCore.Mvc
-Imports Microsoft.EntityFrameworkCore
 
 <Route("api/platforms")>
 <ApiController>
 Public Class PlatformsController
     Inherits ControllerBase
 
-    Private ReadOnly _context As AppDbContext
+    Private ReadOnly _platformService As IPlatformService
 
-    Public Sub New(context As AppDbContext)
-        _context = context
+    Public Sub New(platformService As IPlatformService)
+        _platformService = platformService
     End Sub
 
     <HttpGet>
     Public Async Function GetPlatforms() As Task(Of IActionResult)
-        Dim platforms = Await _context.Platform _
-            .Where(Function(p) Not String.IsNullOrEmpty(p.Url)) _
-            .ToListAsync()
-
+        Dim platforms = Await _platformService.GetActivePlatformsAsync()
         Return Ok(platforms)
     End Function
 End Class

@@ -25,6 +25,13 @@ Module Program
                 opt.UseMySql(conn, ServerVersion.AutoDetect(conn))
             End Sub)
 
+        builder.Services.AddScoped(Of IGameRepository, GameRepository)()
+        builder.Services.AddScoped(Of IGameService, GameService)()
+        builder.Services.AddScoped(Of IPlatformRepository, PlatformRepository)()
+        builder.Services.AddScoped(Of IPlatformService, PlatformService)()
+        builder.Services.AddScoped(Of IReviewRepository, ReviewRepository)()
+        builder.Services.AddScoped(Of IReviewService, ReviewService)()
+
         Dim app = builder.Build()
 
         'If app.Environment.IsDevelopment() Then

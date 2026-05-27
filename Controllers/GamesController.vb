@@ -1,15 +1,14 @@
 Imports Microsoft.AspNetCore.Mvc
-Imports Microsoft.EntityFrameworkCore
 
 <Route("api/games")>
 <ApiController>
 Public Class GamesController
     Inherits ControllerBase
 
-    Private ReadOnly _context As AppDbContext
+    Private ReadOnly _gameService As IGameService
 
-    Public Sub New(context As AppDbContext)
-        _context = context
+    Public Sub New(gameService As IGameService)
+        _gameService = gameService
     End Sub
 
     <HttpGet("platform")>
@@ -19,34 +18,8 @@ Public Class GamesController
         <FromQuery> limit As Integer
     ) As Task(Of IActionResult)
 
-        If page <= 0 Then page = 1
-        If limit <= 0 Then limit = 20
-
-        Dim offset = (page - 1) * limit
-
-        Dim query = _context.Games.Where(Function(g) g.Platform = platform)
-
-        ' total de registros
-        Dim total = Await query.CountAsync()
-
-        ' registros paginados (solo columnas necesarias)
-        Dim rows = Await query _
-            .OrderBy(Function(g) g.Title) _
-            .Skip(offset) _
-            .Take(limit) _
-            .Select(Function(g) New With {
-                .id = g.Id,
-                .title = g.Title,
-                .platform = g.Platform
-            }) _
-            .ToListAsync()
-
-        Return Ok(New With {
-            .page = page,
-            .limit = limit,
-            .total = total,
-            .data = rows
-        })
+        Dim result = Await _gameService.GetGamesByPlatformAsync(platform, page, limit)
+        Return Ok(result)
 
     End Function
 
@@ -57,43 +30,15 @@ Public Class GamesController
         <FromQuery> limit As Integer
     ) As Task(Of IActionResult)
 
-        If page <= 0 Then page = 1
-        If limit <= 0 Then limit = 20
-
-        Dim offset = (page - 1) * limit
-
-        Dim query = _context.Games.AsQueryable()
-
-        If Not String.IsNullOrWhiteSpace(title) Then
-            query = query.Where(Function(g) g.Title.Contains(title))
-        End If
-
-        Dim total = Await query.CountAsync()
-
-        Dim rows = Await query _
-            .OrderBy(Function(g) g.Title) _
-            .Skip(offset) _
-            .Take(limit) _
-            .Select(Function(g) New With {
-                .id = g.Id,
-                .title = g.Title,
-                .platform = g.Platform
-            }) _
-            .ToListAsync()
-
-        Return Ok(New With {
-            .page = page,
-            .limit = limit,
-            .total = total,
-            .data = rows
-        })
+        Dim result = Await _gameService.SearchGamesByTitleAsync(title, page, limit)
+        Return Ok(result)
 
     End Function
 
     <HttpGet("{id}")>
     Public Async Function GetById(<FromRoute> id As Integer) As Task(Of IActionResult)
 
-        Dim game = Await _context.Games.FindAsync(id)
+        Dim game = Await _gameService.GetGameByIdAsync(id)
 
         If game Is Nothing Then
             Return NotFound()

@@ -38,7 +38,9 @@ Public Class GamesControllerTests
     Public Async Function GetById_ReturnsOk_WhenGameExists() As Task
         ' Arrange
         Using context = CreateTestContext()
-            Dim controller = New GamesController(context)
+            Dim repository = New GameRepository(context)
+            Dim service = New GameService(repository)
+            Dim controller = New GamesController(service)
 
             ' Act
             Dim result = Await controller.GetById(1)
@@ -54,7 +56,9 @@ Public Class GamesControllerTests
     Public Async Function GetById_ReturnsNotFound_WhenGameDoesNotExist() As Task
         ' Arrange
         Using context = CreateTestContext()
-            Dim controller = New GamesController(context)
+            Dim repository = New GameRepository(context)
+            Dim service = New GameService(repository)
+            Dim controller = New GamesController(service)
 
             ' Act
             Dim result = Await controller.GetById(999)
@@ -68,18 +72,20 @@ Public Class GamesControllerTests
     Public Async Function FindByPlatformPaginated_ReturnsOk_WithData() As Task
         ' Arrange
         Using context = CreateTestContext()
-            Dim controller = New GamesController(context)
+            Dim repository = New GameRepository(context)
+            Dim service = New GameService(repository)
+            Dim controller = New GamesController(service)
 
             ' Act
             Dim result = Await controller.FindByPlatformPaginated("PS5", 1, 10)
 
             ' Assert
             Dim okResult = Assert.IsType(Of OkObjectResult)(result)
-            Dim response = okResult.Value
+            Dim response = Assert.IsType(Of PagedResult(Of GameSummary))(okResult.Value)
             Assert.Equal(1, response.page)
             Assert.Equal(10, response.limit)
             Assert.Equal(2, response.total)
-            Assert.Equal(2, response.data.Count)
+            Assert.Equal(2, response.data.Count())
         End Using
     End Function
 
@@ -87,18 +93,20 @@ Public Class GamesControllerTests
     Public Async Function FindByTitlePaginated_ReturnsOk_WithFilteredData() As Task
         ' Arrange
         Using context = CreateTestContext()
-            Dim controller = New GamesController(context)
+            Dim repository = New GameRepository(context)
+            Dim service = New GameService(repository)
+            Dim controller = New GamesController(service)
 
             ' Act
             Dim result = Await controller.FindByTitlePaginated("Game", 1, 10)
 
             ' Assert
             Dim okResult = Assert.IsType(Of OkObjectResult)(result)
-            Dim response = okResult.Value
+            Dim response = Assert.IsType(Of PagedResult(Of GameSummary))(okResult.Value)
             Assert.Equal(1, response.page)
             Assert.Equal(10, response.limit)
             Assert.Equal(2, response.total) ' Game 1 and Game 2
-            Assert.Equal(2, response.data.Count)
+            Assert.Equal(2, response.data.Count())
         End Using
     End Function
 
@@ -106,18 +114,20 @@ Public Class GamesControllerTests
     Public Async Function FindByTitlePaginated_ReturnsOk_WithNoFilter() As Task
         ' Arrange
         Using context = CreateTestContext()
-            Dim controller = New GamesController(context)
+            Dim repository = New GameRepository(context)
+            Dim service = New GameService(repository)
+            Dim controller = New GamesController(service)
 
             ' Act
             Dim result = Await controller.FindByTitlePaginated("", 1, 10)
 
             ' Assert
             Dim okResult = Assert.IsType(Of OkObjectResult)(result)
-            Dim response = okResult.Value
+            Dim response = Assert.IsType(Of PagedResult(Of GameSummary))(okResult.Value)
             Assert.Equal(1, response.page)
             Assert.Equal(10, response.limit)
             Assert.Equal(3, response.total) ' All games
-            Assert.Equal(3, response.data.Count)
+            Assert.Equal(3, response.data.Count())
         End Using
     End Function
 
