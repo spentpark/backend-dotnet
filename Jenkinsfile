@@ -91,12 +91,22 @@ pipeline {
 
         stage('Publish to Nexus') {
             steps {
-                // Traemos el usuario y pass configurados en Jenkins
                 withCredentials([usernamePassword(credentialsId: 'nexus', usernameVariable: 'NEXUS_USER', passwordVariable: 'NEXUS_PASS')]) {
                     sh '''
+                    echo "==> Registrando repositorio Nexus en la configuración de NuGet..."
+                    
+                    # 1. Añadir la fuente con usuario y contraseña (vía texto plano para el CLI interno)
+                    dotnet nuget add source http://172.17.0.1:8081/repository/nuget-nexus-repo/ \
+                    --name NexusRepo \
+                    --username "${NEXUS_USER}" \
+                    --password "${NEXUS_PASS}" \
+                    --store-password-in-clear-text
+
+                    echo "==> Subiendo paquete a Nexus..."
+                    
+                    # 2. Hacer el push apuntando al nombre de la fuente registrada
                     dotnet nuget push ./nupkg/*.nupkg \
-                    --source http://172.17.0.1:8081/repository/nuget-nexus-repo/ \
-                    --api-key "${NEXUS_USER}:${NEXUS_PASS}"
+                    --source NexusRepo
                     '''
                 }
             }
