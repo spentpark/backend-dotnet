@@ -44,35 +44,40 @@ pipeline {
                     echo "==> Instalando SonarScanner de manera local..."
                     dotnet tool install dotnet-sonarscanner --tool-path ./tools
 
-                    echo "==> Iniciando análisis de SonarQube con Red de Seguridad Universal..."
+                    echo "==> Iniciando análisis de SonarQube..."
                     ./tools/dotnet-sonarscanner begin \
                       /k:"backend-vbnet" \
                       /d:sonar.host.url="http://172.17.0.1:9000" \
                       /d:sonar.token="${SONAR_TOKEN}" \
                       /d:sonar.exclusions="**/bin/**,**/obj/**,**/*.Tests/**" \
-                      /d:sonar.cs.vscoveragexml.reportsPaths="TestResults/coverage.xml" \
-                      /d:sonar.cs.opencover.reportsPaths="TestResults/coverage.xml" \
-                      /d:sonar.genericcoverage.reportPaths="TestResults/coverage.xml"
+                      /d:sonar.cs.opencover.reportsPaths="TestResults/coverage.xml"
 
                     echo "==> Compilando la solución..."
                     dotnet build --no-restore
 
-                    echo "==> Ejecutando pruebas y forzando formatos..."
-                    # Generamos tanto el formato nativo como el genérico por consola para no depender solo del .vbproj
-                    dotnet test --no-build --results-directory ./TestResults --collect:"XPlat Code Coverage" -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=opencover,cobertura
+                    echo "==> Buscando y ejecutando el proyecto de pruebas unitarias..."
+                    # Buscamos el archivo .vbproj de pruebas dinámicamente para que corra sí o sí
+                    TEST_PROJECT=$(find . -name "*Tests.vbproj" | head -n 1)
+                    
+                    if [ -z "$TEST_PROJECT" ]; then
+                        echo "ERROR: No se encontró ningún proyecto de pruebas (*Tests.vbproj)"
+                        exit 1
+                    fi
+                    
+                    echo "Ejecutando pruebas para: $TEST_PROJECT"
+                    dotnet test "$TEST_PROJECT" --no-build --results-directory ./TestResults --collect:"XPlat Code Coverage" -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=opencover
 
-                    # Movemos CUALQUIER reporte que haya generado a la raíz fija esperada
                     echo "==> Buscando y unificando archivos de cobertura..."
+                    mkdir -p ./TestResults
                     if [ -f ./TestResults/*/coverage.opencover.xml ]; then
                         cp ./TestResults/*/coverage.opencover.xml ./TestResults/coverage.xml
-                    elif [ -f ./TestResults/*/coverage.cobertura.xml ]; then
-                        cp ./TestResults/*/coverage.cobertura.xml ./TestResults/coverage.xml
+                    else
+                        echo "ERROR: ¡El archivo de cobertura no fue generado por coverlet!"
+                        ls -la ./TestResults/* /|| true
+                        exit 1
                     fi
 
-                    echo "==> Verificando que el archivo final exista en el disco antes de cerrar..."
-                    ls -la ./TestResults/
-
-                    echo "==> Finalizando análisis y enviando datos..."
+                    echo "==> Finalizando análisis y enviando datos a SonarQube..."
                     ./tools/dotnet-sonarscanner end /d:sonar.token="${SONAR_TOKEN}"
                     '''
                 }
