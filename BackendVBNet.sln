@@ -1,0 +1,28 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{F184B08F-C81C-45F6-A57F-5ABD9991F28F}") = "BackendVBNet", "BackendVBNet.vbproj", "{B5C623DB-9F31-4463-83CC-72EE85F5F1BA}"
+EndProject
+Project("{F184B08F-C81C-45F6-A57F-5ABD9991F28F}") = "BackendVBNet.Tests", "BackendVBNet.Tests\BackendVBNet.Tests.vbproj", "{6F50F8F9-DF28-486D-AD71-B534B92DFC37}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{B5C623DB-9F31-4463-83CC-72EE85F5F1BA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B5C623DB-9F31-4463-83CC-72EE85F5F1BA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B5C623DB-9F31-4463-83CC-72EE85F5F1BA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B5C623DB-9F31-4463-83CC-72EE85F5F1BA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6F50F8F9-DF28-486D-AD71-B534B92DFC37}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6F50F8F9-DF28-486D-AD71-B534B92DFC37}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6F50F8F9-DF28-486D-AD71-B534B92DFC37}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6F50F8F9-DF28-486D-AD71-B534B92DFC37}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
