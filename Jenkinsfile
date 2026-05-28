@@ -54,15 +54,12 @@ pipeline {
 
                         echo "==> Ejecutando pruebas y generando cobertura..."
                         dotnet test BackendVBNet.sln \
-                          --no-restore \
-                          --results-directory ./TestResults \
-                          --logger:trx;LogFileName=resultado_pruebas.trx \
-                          --collect:"XPlat Code Coverage" \
-                          -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=opencover
-
-                        echo "==> Finalizando análisis de SonarQube..."
-                        ./tools/dotnet-sonarscanner end /d:sonar.token=${SONAR_TOKEN}
-                    '''
+      --no-restore \
+      --results-directory ./TestResults \
+      "--logger:trx;LogFileName=resultado_pruebas.trx" \
+      "--collect:XPlat Code Coverage" \
+      -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=opencover
+'''
                 }
             }
         }
