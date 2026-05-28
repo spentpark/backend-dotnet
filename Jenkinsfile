@@ -34,17 +34,15 @@ pipeline {
             }
         }
 
-        // UNIFICAMOS: El análisis de .NET debe envolver obligatoriamente la etapa de compilación y pruebas
         stage('Build & SonarQube Analysis') {
             steps {
                 withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
                     sh '''
-                    echo "==> Instalando SonarScanner oficial para .NET..."
-                    dotnet tool install --global dotnet-sonarscanner
-                    export PATH="$PATH:$HOME/.dotnet/tools"
+                    echo "==> Instalando SonarScanner en una ruta local del proyecto..."
+                    dotnet tool install dotnet-sonarscanner --tool-path ./tools
 
                     echo "==> Iniciando análisis de SonarQube..."
-                    dotnet sonarscanner begin \
+                    ./tools/dotnet-sonarscanner begin \
                       /k:"backend-vbnet" \
                       /d:sonar.host.url="http://172.17.0.1:9000" \
                       /d:sonar.token="${SONAR_TOKEN}" \
@@ -58,7 +56,7 @@ pipeline {
                     dotnet test --no-build --collect:"XPlat Code Coverage" --results-directory ./TestResults
 
                     echo "==> Finalizando análisis y enviando métricas a SonarQube..."
-                    dotnet sonarscanner end /d:sonar.token="${SONAR_TOKEN}"
+                    ./tools/dotnet-sonarscanner end /d:sonar.token="${SONAR_TOKEN}"
                     '''
                 }
             }
