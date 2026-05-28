@@ -31,38 +31,44 @@ pipeline {
         }
 
         stage('Build & SonarQube Analysis') {
-            steps {
-                withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
-                    sh '''
-                        echo "==> Limpiando entornos previos..."
-                        rm -rf ./TestResults ./tools
+    steps {
+        withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
+            sh '''
+                echo "==> Limpiando entornos previos..."
+                rm -rf ./TestResults ./tools
 
-                        echo "==> Instalando SonarScanner..."
-                        dotnet tool install dotnet-sonarscanner --tool-path ./tools
+                echo "==> Instalando SonarScanner..."
+                dotnet tool install dotnet-sonarscanner --tool-path ./tools
 
-                        echo "==> Iniciando análisis de SonarQube..."
-                        ./tools/dotnet-sonarscanner begin \
-                          /k:backend-vbnet \
-                          /d:sonar.host.url=${SONAR_HOST_URL} \
-                          /d:sonar.token=${SONAR_TOKEN} \
-                          /d:sonar.exclusions=**/bin/**,**/obj/**,**/*.Tests/** \
-                          /d:sonar.vbnet.opencover.reportsPaths=**/TestResults/**/coverage.opencover.xml \
-                          /d:sonar.vbnet.vstest.reportsPaths=**/TestResults/*.trx
+                echo "==> Iniciando análisis de SonarQube..."
+                ./tools/dotnet-sonarscanner begin \
+                  /k:backend-vbnet \
+                  /d:sonar.host.url=${SONAR_HOST_URL} \
+                  /d:sonar.token=${SONAR_TOKEN} \
+                  /d:sonar.exclusions=**/bin/**,**/obj/**,**/*.Tests/** \
+                  /d:sonar.vbnet.opencover.reportsPaths=**/TestResults/**/coverage.opencover.xml \
+                  /d:sonar.vbnet.vstest.reportsPaths=**/TestResults/*.trx
 
-                        echo "==> Compilando..."
-                        dotnet build BackendVBNet.sln --no-restore
+                echo "==> Compilando..."
+                dotnet build BackendVBNet.sln --no-restore
 
-                        echo "==> Ejecutando pruebas y generando cobertura..."
-                        dotnet test BackendVBNet.sln \
-      --no-restore \
-      --results-directory ./TestResults \
-      "--logger:trx;LogFileName=resultado_pruebas.trx" \
-      "--collect:XPlat Code Coverage" \
-      -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=opencover
-'''
-                }
-            }
+                echo "==> Ejecutando pruebas y generando cobertura..."
+                dotnet test BackendVBNet.sln \
+                  --no-restore \
+                  --results-directory ./TestResults \
+                  "--logger:trx;LogFileName=resultado_pruebas.trx" \
+                  "--collect:XPlat Code Coverage" \
+                  -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=opencover
+
+                echo "==> Verificando archivo de cobertura generado..."
+                find ./TestResults -name "coverage.opencover.xml" -type f
+
+                echo "==> Finalizando análisis de SonarQube..."
+                ./tools/dotnet-sonarscanner end /d:sonar.token=${SONAR_TOKEN}
+            '''
         }
+    }
+}
 
         stage('Package') {
             steps {
