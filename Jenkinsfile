@@ -47,13 +47,17 @@ pipeline {
                       /d:sonar.host.url="http://172.17.0.1:9000" \
                       /d:sonar.token="${SONAR_TOKEN}" \
                       /d:sonar.exclusions="**/bin/**,**/obj/**,**/*.Tests/**" \
-                      /d:sonar.cs.vscoveragexml.reportsPaths="TestResults/**/coverage.cobertura.xml"
+                      /d:sonar.cs.vscoveragexml.reportsPaths="TestResults/coverage.xml"
 
                     echo "==> Compilando la solución..."
                     dotnet build --no-restore
 
-                    echo "==> Ejecutando pruebas unitarias con recolección de cobertura..."
-                    dotnet test --no-build --collect:"XPlat Code Coverage" --results-directory ./TestResults
+                    echo "==> Ejecutando pruebas unitarias y forzando archivo de cobertura único..."
+                    # Usamos el formato opencover y le exigimos un nombre de archivo fijo sin subcarpetas dinámicas
+                    dotnet test --no-build --datacollector:"XPlat Code Coverage" --results-directory ./TestResults --  DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=opencover
+
+                    # Movemos y unificamos el reporte generado para asegurar que quede exactamente en TestResults/coverage.xml
+                    cp ./TestResults/*/coverage.opencover.xml ./TestResults/coverage.xml || true
 
                     echo "==> Finalizando análisis y enviando métricas a SonarQube..."
                     ./tools/dotnet-sonarscanner end /d:sonar.token="${SONAR_TOKEN}"
