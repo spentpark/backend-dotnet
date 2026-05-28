@@ -21,8 +21,8 @@ Public Class PlatformServiceTests
     Public Async Function GetActivePlatformsAsync_ReturnsDataFromRepository() As Task
         ' Arrange (Preparar)
         Dim mockData As New List(Of PlatformSummary) From {
-            New PlatformSummary() With { .Id = 1, .Name = "Atari 800" },
-            New PlatformSummary() With { .Id = 2, .Name = "PS1" }
+            New PlatformSummary() With { .Id = 1, .Description = "Atari 800" },
+            New PlatformSummary() With { .Id = 2, .Description = "PS1" }
         }
 
         ' Configuramos el repositorio simulado
