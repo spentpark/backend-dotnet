@@ -91,11 +91,12 @@ pipeline {
 
         stage('Publish to Nexus') {
             steps {
-                withCredentials([usernamePassword(credentialsId: "${NEXUS_CREDENTIAL_ID}", usernameVariable: 'USER', passwordVariable: 'PASS')]) {
+                // Traemos el usuario y pass configurados en Jenkins
+                withCredentials([usernamePassword(credentialsId: 'nexus', usernameVariable: 'NEXUS_USER', passwordVariable: 'NEXUS_PASS')]) {
                     sh '''
-                        dotnet nuget push ./nupkg/*.nupkg \
-                          --source http://${NEXUS_URL}/repository/${NEXUS_REPOSITORY}/ \
-                          --api-key $PASS
+                    dotnet nuget push ./nupkg/*.nupkg \
+                    --source http://172.17.0.1:8081/repository/nuget-nexus-repo/ \
+                    --api-key "${NEXUS_USER}:${NEXUS_PASS}"
                     '''
                 }
             }
