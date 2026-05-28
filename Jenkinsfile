@@ -6,18 +6,17 @@ pipeline {
         }
     }
 
-
     environment {
         // Nexus Config
         NEXUS_VERSION       = "nexus3"
         NEXUS_PROTOCOL      = "http"
         NEXUS_URL           = "172.17.0.1:8081"
-        NEXUS_REPOSITORY    = "nuget-nexus-repo" // Asegúrate de crear un repo tipo 'nuget' en Nexus
+        NEXUS_REPOSITORY    = "nuget-nexus-repo"
         NEXUS_CREDENTIAL_ID = "nexus"
 
         // Sonar Config
         SONAR_HOST_URL = "http://172.17.0.1:9000"
-        SONAR_TOKEN    = credentials('sonar-token') //"squ_d27dacd45a6c18772d7e941fd44e1617cf5c4c38"
+        SONAR_TOKEN    = credentials('sonar-token')
 
         DOTNET_CLI_HOME = '/tmp/dotnet_cli_home'
     }
@@ -35,45 +34,31 @@ pipeline {
             }
         }
 
-        stage('Build') {
-            steps {
-                sh 'dotnet build --no-restore'
-            }
-        }
-
-        stage('Run Tests') {
-            steps {
-                // Ejecuta las pruebas recolectando cobertura en una carpeta fija ./TestResults
-                sh 'dotnet test --no-build --collect:"XPlat Code Coverage" --results-directory ./TestResults'
-            }
-        }
-
-        stage('SonarQube Analysis') {
+        // UNIFICAMOS: El análisis de .NET debe envolver obligatoriamente la etapa de compilación y pruebas
+        stage('Build & SonarQube Analysis') {
             steps {
                 withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
                     sh '''
-                    SONAR_VERSION="5.0.1.3006"
-                    SONAR_DIR="sonar-scanner-${SONAR_VERSION}-linux"
+                    echo "==> Instalando SonarScanner oficial para .NET..."
+                    dotnet tool install --global dotnet-sonarscanner
+                    export PATH="$PATH:$HOME/.dotnet/tools"
 
-                    # 1. Asegurar que unzip esté instalado en este contenedor efímero
-                    if [ ! -f "${SONAR_DIR}/bin/sonar-scanner" ]; then
-                        echo "Instalando herramientas de descompresión..."
-                        apt-get update && apt-get install -y unzip
-                        
-                        echo "Descargando sonar-scanner..."
-                        curl -fL "https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-${SONAR_VERSION}-linux.zip" -o sonar-scanner.zip
-                        unzip -q sonar-scanner.zip
-                        rm sonar-scanner.zip
-                    fi
+                    echo "==> Iniciando análisis de SonarQube..."
+                    dotnet sonarscanner begin \
+                      /k:"backend-vbnet" \
+                      /d:sonar.host.url="http://172.17.0.1:9000" \
+                      /d:sonar.token="${SONAR_TOKEN}" \
+                      /d:sonar.exclusions="**/bin/**,**/obj/**,**/*.Tests/**" \
+                      /d:sonar.cs.vscoveragexml.reportsPaths="TestResults/**/coverage.cobertura.xml"
 
-                    # 2. Ejecutar el scanner importando el archivo de cobertura de VB.NET
-                    ./${SONAR_DIR}/bin/sonar-scanner \
-                    -Dsonar.projectKey=backend-vbnet \
-                    -Dsonar.sources=. \
-                    -Dsonar.exclusions=**/bin/**,**/obj/**,**/*.Tests/** \
-                    -Dsonar.host.url=http://172.17.0.1:9000 \
-                    -Dsonar.token=${SONAR_TOKEN} \
-                    -Dsonar.cs.vscoveragexml.reportsPaths=./TestResults/*/coverage.cobertura.xml
+                    echo "==> Compilando la solución..."
+                    dotnet build --no-restore
+
+                    echo "==> Ejecutando pruebas unitarias con recolección de cobertura..."
+                    dotnet test --no-build --collect:"XPlat Code Coverage" --results-directory ./TestResults
+
+                    echo "==> Finalizando análisis y enviando métricas a SonarQube..."
+                    dotnet sonarscanner end /d:sonar.token="${SONAR_TOKEN}"
                     '''
                 }
             }
@@ -82,10 +67,7 @@ pipeline {
         stage('Package') {
             steps {
                 sh '''
-                # Crear el directorio a la fuerza por si acaso
                 mkdir -p ./nupkg
-                
-                # Empaquetar el proyecto en modo Release
                 dotnet pack --configuration Release --output ./nupkg
                 '''
             }
@@ -96,19 +78,15 @@ pipeline {
                 withCredentials([usernamePassword(credentialsId: 'nexus', usernameVariable: 'NEXUS_USER', passwordVariable: 'NEXUS_PASS')]) {
                     sh '''
                     echo "==> Registrando repositorio Nexus en la configuración de NuGet..."
-                    
-                    # 1. Añadir la fuente con usuario y contraseña (vía texto plano para el CLI interno)
                     dotnet nuget add source http://172.17.0.1:8081/repository/nuget-nexus-repo/ \
-                    --name NexusRepo \
-                    --username "${NEXUS_USER}" \
-                    --password "${NEXUS_PASS}" \
-                    --store-password-in-clear-text
+                      --name NexusRepo \
+                      --username "${NEXUS_USER}" \
+                      --password "${NEXUS_PASS}" \
+                      --store-password-in-clear-text
 
                     echo "==> Subiendo paquete a Nexus..."
-                    
-                    # 2. Hacer el push apuntando al nombre de la fuente registrada
                     dotnet nuget push ./nupkg/*.nupkg \
-                    --source NexusRepo
+                      --source NexusRepo
                     '''
                 }
             }
