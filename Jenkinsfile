@@ -30,14 +30,10 @@ pipeline {
 
         stage('Restore Dependencies') {
             steps {
+                // Restauramos el principal y luego el de pruebas
                 sh '''
-                echo "==> Creando solución temporal para unificar rutas en Jenkins..."
-                dotnet new sln --name BackendSolucion --force
-                dotnet sln BackendSolucion.sln add BackendVBNet.vbproj
-                dotnet sln BackendSolucion.sln add ./BackendVBNet.Tests/BackendVBNet.Tests.vbproj
-
-                echo "==> Restaurando paquetes de toda la solución unificada..."
-                dotnet restore BackendSolucion.sln
+                dotnet restore BackendVBNet.vbproj
+                dotnet restore ./BackendVBNet.Tests/BackendVBNet.Tests.vbproj
                 '''
             }
         }
@@ -46,10 +42,10 @@ pipeline {
             steps {
                 withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
                     sh '''
-                    echo "==> Limpiando entornos previos de cobertura..."
+                    echo "==> Limpiando entornos previos..."
                     rm -rf ./TestResults ./tools
 
-                    echo "==> Instalando SonarScanner de manera local..."
+                    echo "==> Instalando SonarScanner..."
                     dotnet tool install dotnet-sonarscanner --tool-path ./tools
 
                     echo "==> Iniciando análisis de SonarQube..."
@@ -60,27 +56,27 @@ pipeline {
                       /d:sonar.exclusions="**/bin/**,**/obj/**,**/*.Tests/**" \
                       /d:sonar.cs.opencover.reportsPaths="TestResults/coverage.xml"
 
-                    echo "==> Compilando la solución completa..."
-                    dotnet build BackendSolucion.sln --no-restore
+                    echo "==> Compilando el proyecto principal..."
+                    dotnet build BackendVBNet.vbproj --no-restore
 
-                    echo "==> Ejecutando pruebas unitarias de forma aislada..."
+                    echo "==> Ejecutando pruebas unitarias y generando cobertura..."
                     dotnet test ./BackendVBNet.Tests/BackendVBNet.Tests.vbproj \
                       --no-restore \
                       --results-directory ./TestResults \
                       --collect:"XPlat Code Coverage" \
                       -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=opencover
 
-                    echo "==> Buscando y unificando archivos de cobertura..."
+                    echo "==> Unificando archivos de cobertura..."
                     mkdir -p ./TestResults
                     if [ -f ./TestResults/*/coverage.opencover.xml ]; then
                         cp ./TestResults/*/coverage.opencover.xml ./TestResults/coverage.xml
-                        echo "¡Archivo de cobertura unificado con éxito!"
+                        echo "¡Archivo de cobertura copiado con éxito!"
                     else
-                        echo "ERROR: ¡El archivo de cobertura no fue generado!"
+                        echo "ERROR: ¡No se encontró el reporte de cobertura!"
                         exit 1
                     fi
 
-                    echo "==> Finalizando análisis y enviando datos a SonarQube..."
+                    echo "==> Finalizando análisis en SonarQube..."
                     ./tools/dotnet-sonarscanner end /d:sonar.token="${SONAR_TOKEN}"
                     '''
                 }
