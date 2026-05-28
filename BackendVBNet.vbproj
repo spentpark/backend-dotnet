@@ -4,6 +4,9 @@
     <OutputType>Exe</OutputType>
     <TargetFramework>net8.0</TargetFramework>
     <IsPackable>true</IsPackable>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    <CoverletOutputFormat>opencover</CoverletOutputFormat>
+    <CoverletOutput>../TestResults/coverage.xml</CoverletOutput>
   </PropertyGroup>
 
   <ItemGroup>
