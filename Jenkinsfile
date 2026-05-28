@@ -6,17 +6,18 @@ pipeline {
         }
     }
 
+
     environment {
         // Nexus Config
         NEXUS_VERSION       = "nexus3"
         NEXUS_PROTOCOL      = "http"
         NEXUS_URL           = "172.17.0.1:8081"
-        NEXUS_REPOSITORY    = "nuget-nexus-repo" 
+        NEXUS_REPOSITORY    = "nuget-nexus-repo" // Asegúrate de crear un repo tipo 'nuget' en Nexus
         NEXUS_CREDENTIAL_ID = "nexus"
 
         // Sonar Config
         SONAR_HOST_URL = "http://172.17.0.1:9000"
-        SONAR_TOKEN    = credentials('sonar-token')
+        SONAR_TOKEN    = credentials('sonar-token') //"squ_d27dacd45a6c18772d7e941fd44e1617cf5c4c38"
 
         DOTNET_CLI_HOME = '/tmp/dotnet_cli_home'
     }
@@ -67,12 +68,12 @@ pipeline {
 
                     # 2. Ejecutar el scanner importando el archivo de cobertura de VB.NET
                     ./${SONAR_DIR}/bin/sonar-scanner \
-                      -Dsonar.projectKey=backend-vbnet \
-                      -Dsonar.sources=. \
-                      -Dsonar.exclusions=**/bin/**,**/obj/**,**/*.Tests/** \
-                      -Dsonar.host.url=http://172.17.0.1:9000 \
-                      -Dsonar.token=${SONAR_TOKEN} \
-                      -Dsonar.cs.vscoveragexml.reportsPaths=./TestResults/*/coverage.cobertura.xml
+                    -Dsonar.projectKey=backend-vbnet \
+                    -Dsonar.sources=. \
+                    -Dsonar.exclusions=**/bin/**,**/obj/**,**/*.Tests/** \
+                    -Dsonar.host.url=http://172.17.0.1:9000 \
+                    -Dsonar.token=${SONAR_TOKEN} \
+                    -Dsonar.cs.vscoveragexml.reportsPaths=./TestResults/*/coverage.cobertura.xml
                     '''
                 }
             }
@@ -98,16 +99,16 @@ pipeline {
                     
                     # 1. Añadir la fuente con usuario y contraseña (vía texto plano para el CLI interno)
                     dotnet nuget add source http://172.17.0.1:8081/repository/nuget-nexus-repo/ \
-                      --name NexusRepo \
-                      --username "${NEXUS_USER}" \
-                      --password "${NEXUS_PASS}" \
-                      --store-password-in-clear-text
+                    --name NexusRepo \
+                    --username "${NEXUS_USER}" \
+                    --password "${NEXUS_PASS}" \
+                    --store-password-in-clear-text
 
                     echo "==> Subiendo paquete a Nexus..."
                     
                     # 2. Hacer el push apuntando al nombre de la fuente registrada
                     dotnet nuget push ./nupkg/*.nupkg \
-                      --source NexusRepo
+                    --source NexusRepo
                     '''
                 }
             }
