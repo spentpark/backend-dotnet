@@ -49,18 +49,23 @@ pipeline {
             dotnet tool install dotnet-sonarscanner --tool-path ./tools
 
             echo ==> Iniciando análisis de SonarQube...
-            # NOTA: Cambiamos la ruta del reporte para usar comodines y que encuentre el archivo .opencover.xml real
             ./tools/dotnet-sonarscanner begin /k:backend-vbnet \
               /d:sonar.host.url=http://172.17.0.1:9000 \
               /d:sonar.token=$SONAR_TOKEN \
               /d:sonar.exclusions="**/bin/**,**/obj/**,**/*.Tests/**" \
-              /d:sonar.cs.opencover.reportsPaths="**/TestResults/**/coverage.opencover.xml"
+              /d:sonar.cs.vscoveragexml.reportsPaths="**/TestResults/**/coverage.cobertura.xml" \
+              /d:sonar.vbcsharp.vstest.reportsPaths="**/TestResults/*.trx"
 
             echo ==> Compilando el proyecto principal...
             dotnet build BackendVBNet.sln --no-restore
 
             echo ==> Ejecutando pruebas unitarias y generando cobertura...
-            dotnet test BackendVBNet.sln --no-restore --results-directory ./TestResults --collect:"XPlat Code Coverage" -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=opencover
+            # Cambiamos el formato a "cobertura" y añadimos un logger trx para que SonarQube también vea qué tests pasaron
+            dotnet test BackendVBNet.sln --no-restore \
+              --results-directory ./TestResults \
+              --logger:"trx;LogFileName=resultado_pruebas.trx" \
+              --collect:"XPlat Code Coverage" \
+              -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=cobertura
 
             echo ==> Finalizando análisis de SonarQube...
             ./tools/dotnet-sonarscanner end /d:sonar.token=$SONAR_TOKEN
