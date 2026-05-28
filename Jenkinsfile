@@ -1,12 +1,16 @@
 pipeline {
-    agent any
+    agent {
+        docker {
+            image 'mcr.microsoft.com/dotnet/sdk:8.0'
+            args '-u root'
+        }
+    }
 
     environment {
         NEXUS_URL           = "172.17.0.1:8081"
         NEXUS_REPOSITORY    = "nuget-nexus-repo"
         NEXUS_CREDENTIAL_ID = "nexus"
         SONAR_HOST_URL      = "http://172.17.0.1:9000"
-        SONAR_TOKEN         = credentials('sonar-token')
     }
 
     stages {
@@ -18,12 +22,6 @@ pipeline {
         }
 
         stage('Restore Dependencies') {
-            agent {
-                docker {
-                    image 'mcr.microsoft.com/dotnet/sdk:8.0'
-                    reuseNode true
-                }
-            }
             steps {
                 sh '''
                     dotnet restore BackendVBNet.vbproj
@@ -33,12 +31,6 @@ pipeline {
         }
 
         stage('Build & SonarQube Analysis') {
-            agent {
-                docker {
-                    image 'mcr.microsoft.com/dotnet/sdk:8.0'
-                    reuseNode true
-                }
-            }
             steps {
                 withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
                     sh '''
@@ -57,10 +49,10 @@ pipeline {
                           /d:sonar.vbnet.opencover.reportsPaths=**/TestResults/**/coverage.opencover.xml \
                           /d:sonar.vbnet.vstest.reportsPaths=**/TestResults/*.trx
 
-                        echo "==> Compilando el proyecto principal..."
+                        echo "==> Compilando..."
                         dotnet build BackendVBNet.sln --no-restore
 
-                        echo "==> Ejecutando pruebas unitarias y generando cobertura..."
+                        echo "==> Ejecutando pruebas y generando cobertura..."
                         dotnet test BackendVBNet.sln \
                           --no-restore \
                           --results-directory ./TestResults \
@@ -76,12 +68,6 @@ pipeline {
         }
 
         stage('Package') {
-            agent {
-                docker {
-                    image 'mcr.microsoft.com/dotnet/sdk:8.0'
-                    reuseNode true
-                }
-            }
             steps {
                 sh '''
                     mkdir -p ./nupkg
@@ -93,12 +79,6 @@ pipeline {
         }
 
         stage('Publish to Nexus') {
-            agent {
-                docker {
-                    image 'mcr.microsoft.com/dotnet/sdk:8.0'
-                    reuseNode true
-                }
-            }
             steps {
                 withCredentials([usernamePassword(
                     credentialsId: "${NEXUS_CREDENTIAL_ID}",
@@ -106,7 +86,7 @@ pipeline {
                     passwordVariable: 'NEXUS_PASS'
                 )]) {
                     sh '''
-                        echo "==> Registrando repositorio Nexus en la configuración de NuGet..."
+                        echo "==> Registrando repositorio Nexus..."
                         dotnet nuget add source http://${NEXUS_URL}/repository/${NEXUS_REPOSITORY}/ \
                           --name NexusRepo \
                           --username ${NEXUS_USER} \
@@ -114,8 +94,7 @@ pipeline {
                           --store-password-in-clear-text
 
                         echo "==> Subiendo paquete a Nexus..."
-                        dotnet nuget push ./nupkg/*.nupkg \
-                          --source NexusRepo
+                        dotnet nuget push ./nupkg/*.nupkg --source NexusRepo
                     '''
                 }
             }
