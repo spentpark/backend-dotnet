@@ -50,14 +50,26 @@ pipeline {
         stage('SonarQube Analysis') {
             steps {
                 withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
-                    sh """
-                    sonar-scanner \
+                    sh '''
+                    SONAR_VERSION="5.0.1.3006"
+                    SONAR_DIR="sonar-scanner-${SONAR_VERSION}-linux"
+
+                    # 1. Si no existe el scanner en el espacio de trabajo actual, lo descargamos
+                    if [ ! -f "${SONAR_DIR}/bin/sonar-scanner" ]; then
+                        echo "Descargando sonar-scanner..."
+                        curl -fL "https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-${SONAR_VERSION}-linux.zip" -o sonar-scanner.zip
+                        unzip -q sonar-scanner.zip
+                        rm sonar-scanner.zip
+                    fi
+
+                    # 2. Ejecutar el scanner usando la ruta explícita del binario
+                    ./${SONAR_DIR}/bin/sonar-scanner \
                     -Dsonar.projectKey=backend-vbnet \
                     -Dsonar.sources=. \
                     -Dsonar.exclusions=**/bin/**,**/obj/** \
                     -Dsonar.host.url=http://172.17.0.1:9000 \
                     -Dsonar.token=${SONAR_TOKEN}
-                    """
+                    '''
                 }
             }
         }
