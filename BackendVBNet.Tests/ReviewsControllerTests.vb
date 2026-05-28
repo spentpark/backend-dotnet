@@ -2,6 +2,8 @@ Imports System.Threading.Tasks
 Imports Microsoft.AspNetCore.Mvc
 Imports Moq
 Imports Xunit
+' Importamos el namespace raíz para que reconozca los DTOs/Modelos e interfaces
+Imports BackendVBNet
 
 Public Class ReviewsControllerTests
 
@@ -22,13 +24,25 @@ Public Class ReviewsControllerTests
         ' Arrange (Preparar datos de prueba)
         Dim targetGameId As Integer = 120
         
-        ' Simulamos un par de reviews para el juego seleccionado
-        Dim mockReviews As New List(Of Object) From {
-            New With { .Id = 1, .GameId = targetGameId, .User = "Player1", .Rating = 5, .Comment = "Juegazo, una obra maestra de la época." },
-            New With { .Id = 2, .GameId = targetGameId, .User = "RetroGamer", .Rating = 4, .Comment = "Muy buena jugabilidad, pero la música se vuelve repetitiva." }
+        ' Cambiado de List(Of Object) a List(Of ReviewSummary) para tipar correctamente los datos
+        Dim mockReviews As New List(Of ReviewSummary) From {
+            New ReviewSummary() With { 
+                .Id = 1, 
+                .GameId = targetGameId, 
+                .User = "Player1", 
+                .Rating = 5, 
+                .Comment = "Juegazo, una obra maestra de la época." 
+            },
+            New ReviewSummary() With { 
+                .Id = 2, 
+                .GameId = targetGameId, 
+                .User = "RetroGamer", 
+                .Rating = 4, 
+                .Comment = "Muy buena jugabilidad, pero la música se vuelve repetitiva." 
+            }
         }
 
-        ' Configuramos el Mock para que devuelva la lista al pasarle el ID del juego
+        ' Configuramos el Mock para que devuelva la lista fuertemente tipada al pasarle el ID del juego
         _reviewServiceMock.
             Setup(Function(s) s.GetReviewsByGameIdAsync(targetGameId)).
             ReturnsAsync(mockReviews)

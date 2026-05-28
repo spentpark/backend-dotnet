@@ -2,6 +2,8 @@ Imports System.Threading.Tasks
 Imports Microsoft.AspNetCore.Mvc
 Imports Moq
 Imports Xunit
+' Asegúrate de importar el namespace donde residen tus modelos/DTOs y la interfaz del servicio
+Imports BackendVBNet
 
 Public Class PlatformsControllerTests
 
@@ -20,15 +22,15 @@ Public Class PlatformsControllerTests
     <Fact>
     Public Async Function GetPlatforms_ReturnsOkWithListOfPlatforms() As Task
         ' Arrange (Preparar los datos de prueba)
-        ' Simulamos una lista de plataformas retro comunes en tu base de datos
-        Dim mockPlatforms As New List(Of Object) From {
-            New With { .Id = 1, .Name = "NES", .Company = "Nintendo" },
-            New With { .Id = 2, .Name = "SNES", .Company = "Nintendo" },
-            New With { .Id = 3, .Name = "Atari 800", .Company = "Atari" },
-            New With { .Id = 4, .Name = "PS1", .Company = "Sony" }
+        ' Cambiado de List(Of Object) a List(Of PlatformSummary) para evitar el error de InvalidCastException
+        Dim mockPlatforms As New List(Of PlatformSummary) From {
+            New PlatformSummary() With { .Id = 1, .Name = "NES", .Company = "Nintendo" },
+            New PlatformSummary() With { .Id = 2, .Name = "SNES", .Company = "Nintendo" },
+            New PlatformSummary() With { .Id = 3, .Name = "Atari 800", .Company = "Atari" },
+            New PlatformSummary() With { .Id = 4, .Name = "PS1", .Company = "Sony" }
         }
 
-        ' Configuramos el Mock para que cuando se llame al método asíncrono, devuelva nuestra lista
+        ' Configuramos el Mock para que devuelva la lista fuertemente tipada
         _platformServiceMock.
             Setup(Function(s) s.GetActivePlatformsAsync()).
             ReturnsAsync(mockPlatforms)
