@@ -1,0 +1,79 @@
+Imports System
+Imports Microsoft.AspNetCore.Mvc.Testing
+Imports Microsoft.EntityFrameworkCore
+Imports Microsoft.Extensions.DependencyInjection
+Imports Xunit
+
+Public Class ProgramIntegrationTests
+    Implements IClassFixture(Of WebApplicationFactory(Of Program))
+
+    Private ReadOnly _factory As WebApplicationFactory(Of Program)
+
+    Public Sub New(factory As WebApplicationFactory(Of Program))
+        _factory = factory
+    End Sub
+
+    <Fact>
+    Public Sub DI_GameRepository_IsRegistered()
+        ' Arrange & Act
+        Using scope = _factory.Services.CreateScope()
+            Dim service = scope.ServiceProvider.GetService(Of IGameRepository)()
+
+            ' Assert
+            Assert.NotNull(service)
+        End Using
+    End Sub
+
+    <Fact>
+    Public Sub DI_GameService_IsRegistered()
+        Using scope = _factory.Services.CreateScope()
+            Dim service = scope.ServiceProvider.GetService(Of IGameService)()
+            Assert.NotNull(service)
+        End Using
+    End Sub
+
+    <Fact>
+    Public Sub DI_PlatformRepository_IsRegistered()
+        Using scope = _factory.Services.CreateScope()
+            Dim service = scope.ServiceProvider.GetService(Of IPlatformRepository)()
+            Assert.NotNull(service)
+        End Using
+    End Sub
+
+    <Fact>
+    Public Sub DI_PlatformService_IsRegistered()
+        Using scope = _factory.Services.CreateScope()
+            Dim service = scope.ServiceProvider.GetService(Of IPlatformService)()
+            Assert.NotNull(service)
+        End Using
+    End Sub
+
+    <Fact>
+    Public Sub DI_ReviewRepository_IsRegistered()
+        Using scope = _factory.Services.CreateScope()
+            Dim service = scope.ServiceProvider.GetService(Of IReviewRepository)()
+            Assert.NotNull(service)
+        End Using
+    End Sub
+
+    <Fact>
+    Public Sub DI_ReviewService_IsRegistered()
+        Using scope = _factory.Services.CreateScope()
+            Dim service = scope.ServiceProvider.GetService(Of IReviewService)()
+            Assert.NotNull(service)
+        End Using
+    End Sub
+
+    <Fact>
+    Public Async Function Swagger_Endpoint_ReturnsOk() As Task
+        ' Arrange
+        Dim client = _factory.CreateClient()
+
+        ' Act
+        Dim response = Await client.GetAsync("/swagger/v1/swagger.json")
+
+        ' Assert
+        response.EnsureSuccessStatusCode()
+    End Function
+
+End Class
