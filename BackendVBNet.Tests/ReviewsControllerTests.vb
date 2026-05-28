@@ -2,7 +2,6 @@ Imports System.Threading.Tasks
 Imports Microsoft.AspNetCore.Mvc
 Imports Moq
 Imports Xunit
-' Importamos el namespace raíz para que reconozca los DTOs/Modelos e interfaces
 Imports BackendVBNet
 
 Public Class ReviewsControllerTests
@@ -24,21 +23,21 @@ Public Class ReviewsControllerTests
         ' Arrange (Preparar datos de prueba)
         Dim targetGameId As Integer = 120
         
-        ' Cambiado de List(Of Object) a List(Of ReviewSummary) para tipar correctamente los datos
+        ' Ajustado perfectamente a la estructura real de tu ReviewSummary
         Dim mockReviews As New List(Of ReviewSummary) From {
             New ReviewSummary() With { 
-                .Id = 1, 
-                .GameId = targetGameId, 
-                .User = "Player1", 
-                .Rating = 5, 
-                .Comment = "Juegazo, una obra maestra de la época." 
+                .id = 1, 
+                .gameId = targetGameId, 
+                .author = "Player1", 
+                .score = 5, 
+                .comment = "Juegazo, una obra maestra de la época." 
             },
             New ReviewSummary() With { 
-                .Id = 2, 
-                .GameId = targetGameId, 
-                .User = "RetroGamer", 
-                .Rating = 4, 
-                .Comment = "Muy buena jugabilidad, pero la música se vuelve repetitiva." 
+                .id = 2, 
+                .gameId = targetGameId, 
+                .author = "RetroGamer", 
+                .score = 4, 
+                .comment = "Muy buena jugabilidad, pero la música se vuelve repetitiva." 
             }
         }
 

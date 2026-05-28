@@ -24,10 +24,10 @@ Public Class PlatformsControllerTests
         ' Arrange (Preparar los datos de prueba)
         ' Cambiado de List(Of Object) a List(Of PlatformSummary) para evitar el error de InvalidCastException
         Dim mockPlatforms As New List(Of PlatformSummary) From {
-            New PlatformSummary() With { .Id = 1, .Name = "NES", .Company = "Nintendo" },
-            New PlatformSummary() With { .Id = 2, .Name = "SNES", .Company = "Nintendo" },
-            New PlatformSummary() With { .Id = 3, .Name = "Atari 800", .Company = "Atari" },
-            New PlatformSummary() With { .Id = 4, .Name = "PS1", .Company = "Sony" }
+            New PlatformSummary() With { .Id = 1, .Description = "NES", .Url = "Nintendo" },
+            New PlatformSummary() With { .Id = 2, .Description = "SNES", .Url = "Nintendo" },
+            New PlatformSummary() With { .Id = 3, .Description = "Atari 800", .Url = "Atari" },
+            New PlatformSummary() With { .Id = 4, .Description = "PS1", .Url = "Sony" }
         }
 
         ' Configuramos el Mock para que devuelva la lista fuertemente tipada
