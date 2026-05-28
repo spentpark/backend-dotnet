@@ -79,7 +79,13 @@ pipeline {
 
         stage('Package') {
             steps {
-                sh 'dotnet pack --configuration Release --output ./nupkg'
+                sh '''
+                # Crear el directorio a la fuerza por si acaso
+                mkdir -p ./nupkg
+                
+                # Empaquetar el proyecto en modo Release
+                dotnet pack --configuration Release --output ./nupkg
+                '''
             }
         }
 
