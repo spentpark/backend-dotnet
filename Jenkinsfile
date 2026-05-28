@@ -52,28 +52,23 @@ pipeline {
                       /d:sonar.exclusions="**/bin/**,**/obj/**,**/*.Tests/**" \
                       /d:sonar.cs.opencover.reportsPaths="TestResults/coverage.xml"
 
-                    echo "==> Compilando la solución..."
+                    echo "==> Compilando el proyecto principal..."
                     dotnet build --no-restore
 
-                    echo "==> Buscando y ejecutando el proyecto de pruebas unitarias..."
-                    # Buscamos el archivo .vbproj de pruebas dinámicamente para que corra sí o sí
-                    TEST_PROJECT=$(find . -name "*Tests.vbproj" | head -n 1)
-                    
-                    if [ -z "$TEST_PROJECT" ]; then
-                        echo "ERROR: No se encontró ningún proyecto de pruebas (*Tests.vbproj)"
-                        exit 1
-                    fi
-                    
-                    echo "Ejecutando pruebas para: $TEST_PROJECT"
-                    dotnet test "$TEST_PROJECT" --no-build --results-directory ./TestResults --collect:"XPlat Code Coverage" -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=opencover
+                    echo "==> Ejecutando pruebas unitarias y generando cobertura..."
+                    # Quitamos --no-build y apuntamos directo al proyecto usando los flags limpios de coverlet
+                    dotnet test ./BackendVBNet.Tests/BackendVBNet.Tests.vbproj \
+                      --results-directory ./TestResults \
+                      --collect:"XPlat Code Coverage" \
+                      -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=opencover
 
                     echo "==> Buscando y unificando archivos de cobertura..."
                     mkdir -p ./TestResults
                     if [ -f ./TestResults/*/coverage.opencover.xml ]; then
                         cp ./TestResults/*/coverage.opencover.xml ./TestResults/coverage.xml
+                        echo "¡Archivo de cobertura unificado con éxito en ./TestResults/coverage.xml!"
                     else
-                        echo "ERROR: ¡El archivo de cobertura no fue generado por coverlet!"
-                        ls -la ./TestResults/* /|| true
+                        echo "ERROR: ¡El archivo de cobertura no fue generado!"
                         exit 1
                     fi
 
