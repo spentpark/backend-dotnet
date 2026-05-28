@@ -39,49 +39,35 @@ pipeline {
         }
 
         stage('Build & SonarQube Analysis') {
-            steps {
-                withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
-                    sh '''
-                    echo "==> Limpiando entornos previos..."
-                    rm -rf ./TestResults ./tools
+    steps {
+        withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
+            sh '''
+            echo ==> Limpiando entornos previos...
+            rm -rf ./TestResults ./tools
 
-                    echo "==> Instalando SonarScanner..."
-                    dotnet tool install dotnet-sonarscanner --tool-path ./tools
+            echo ==> Instalando SonarScanner...
+            dotnet tool install dotnet-sonarscanner --tool-path ./tools
 
-                    echo "==> Iniciando análisis de SonarQube..."
-                    ./tools/dotnet-sonarscanner begin \
-                      /k:"backend-vbnet" \
-                      /d:sonar.host.url="http://172.17.0.1:9000" \
-                      /d:sonar.token="${SONAR_TOKEN}" \
-                      /d:sonar.exclusions="**/bin/**,**/obj/**,**/*.Tests/**" \
-                      /d:sonar.cs.opencover.reportsPaths="TestResults/coverage.xml"
+            echo ==> Iniciando análisis de SonarQube...
+            # NOTA: Cambiamos la ruta del reporte para usar comodines y que encuentre el archivo .opencover.xml real
+            ./tools/dotnet-sonarscanner begin /k:backend-vbnet \
+              /d:sonar.host.url=http://172.17.0.1:9000 \
+              /d:sonar.token=$SONAR_TOKEN \
+              /d:sonar.exclusions="**/bin/**,**/obj/**,**/*.Tests/**" \
+              /d:sonar.cs.opencover.reportsPaths="**/TestResults/**/coverage.opencover.xml"
 
-                    echo "==> Compilando el proyecto principal..."
-                    dotnet build BackendVBNet.vbproj --no-restore
+            echo ==> Compilando el proyecto principal...
+            dotnet build BackendVBNet.sln --no-restore
 
-                    echo "==> Ejecutando pruebas unitarias y generando cobertura..."
-                    dotnet test ./BackendVBNet.Tests/BackendVBNet.Tests.vbproj \
-                      --no-restore \
-                      --results-directory ./TestResults \
-                      --collect:"XPlat Code Coverage" \
-                      -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=opencover
+            echo ==> Ejecutando pruebas unitarias y generando cobertura...
+            dotnet test BackendVBNet.sln --no-restore --results-directory ./TestResults --collect:"XPlat Code Coverage" -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=opencover
 
-                    echo "==> Unificando archivos de cobertura..."
-                    mkdir -p ./TestResults
-                    if [ -f ./TestResults/*/coverage.opencover.xml ]; then
-                        cp ./TestResults/*/coverage.opencover.xml ./TestResults/coverage.xml
-                        echo "¡Archivo de cobertura copiado con éxito!"
-                    else
-                        echo "ERROR: ¡No se encontró el reporte de cobertura!"
-                        exit 1
-                    fi
-
-                    echo "==> Finalizando análisis en SonarQube..."
-                    ./tools/dotnet-sonarscanner end /d:sonar.token="${SONAR_TOKEN}"
-                    '''
-                }
-            }
+            echo ==> Finalizando análisis de SonarQube...
+            ./tools/dotnet-sonarscanner end /d:sonar.token=$SONAR_TOKEN
+            '''
         }
+    }
+}
 
         stage('Package') {
             steps {
