@@ -38,6 +38,9 @@ pipeline {
             steps {
                 withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
                     sh '''
+                    echo "==> Limpiando resultados anteriores..."
+                    rm -rf ./TestResults ./tools
+
                     echo "==> Instalando SonarScanner en una ruta local del proyecto..."
                     dotnet tool install dotnet-sonarscanner --tool-path ./tools
 
@@ -47,17 +50,22 @@ pipeline {
                       /d:sonar.host.url="http://172.17.0.1:9000" \
                       /d:sonar.token="${SONAR_TOKEN}" \
                       /d:sonar.exclusions="**/bin/**,**/obj/**,**/*.Tests/**" \
-                      /d:sonar.cs.vscoveragexml.reportsPaths="TestResults/coverage.xml"
+                      /d:sonar.cs.opencover.reportsPaths="TestResults/coverage.xml"
 
                     echo "==> Compilando la solución..."
                     dotnet build --no-restore
 
-                    echo "==> Ejecutando pruebas unitarias y forzando archivo de cobertura único..."
-                    # Usamos el formato opencover y le exigimos un nombre de archivo fijo sin subcarpetas dinámicas
-                    dotnet test --no-build --datacollector:"XPlat Code Coverage" --results-directory ./TestResults --  DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=opencover
+                    echo "==> Ejecutando pruebas unitarias..."
+                    # Ejecutamos de forma limpia; las propiedades del .vbproj se encargarán del resto
+                    dotnet test --no-build --collect:"XPlat Code Coverage" --results-directory ./TestResults
 
-                    # Movemos y unificamos el reporte generado para asegurar que quede exactamente en TestResults/coverage.xml
-                    cp ./TestResults/*/coverage.opencover.xml ./TestResults/coverage.xml || true
+                    # Forzamos un descarte por si el colector anidó el archivo en carpetas con GUIDs
+                    if [ -f ./TestResults/*/coverage.opencover.xml ]; then
+                        cp ./TestResults/*/coverage.opencover.xml ./TestResults/coverage.xml
+                    elif [ -f ./TestResults/*/coverage.cobertura.xml ]; then
+                        # Si generó cobertura estándar, la movemos al destino esperado
+                        cp ./TestResults/*/coverage.cobertura.xml ./TestResults/coverage.xml
+                    fi
 
                     echo "==> Finalizando análisis y enviando métricas a SonarQube..."
                     ./tools/dotnet-sonarscanner end /d:sonar.token="${SONAR_TOKEN}"
