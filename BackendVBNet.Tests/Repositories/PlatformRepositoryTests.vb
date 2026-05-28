@@ -1,9 +1,11 @@
+Imports System
 Imports System.Collections.Generic
+Imports System.Linq
 Imports System.Threading.Tasks
 Imports Microsoft.EntityFrameworkCore
 Imports Xunit
 
-Public Class PlatformRepositoryTests
+Public Class ReviewRepositoryTests
 
     Private Function CreateInMemoryContext() As AppDbContext
         Dim options = New DbContextOptionsBuilder(Of AppDbContext)() _
@@ -13,82 +15,99 @@ Public Class PlatformRepositoryTests
     End Function
 
     <Fact>
-    Public Async Function GetAllWithUrlAsync_ReturnsOnlyPlatformsWithUrl() As Task
-        ' Arrange
+    Public Async Function GetByGameIdAsync_ReturnsOnlyReviewsForGivenGame() As Task
         Using context = CreateInMemoryContext()
-            context.platform.AddRange(
-                New Platform With {.Id = 1, .Description = "PlayStation 5", .Url = "https://ps5.com"},
-                New Platform With {.Id = 2, .Description = "Xbox Series X", .Url = "https://xbox.com"},
-                New Platform With {.Id = 3, .Description = "Sin URL", .Url = Nothing},
-                New Platform With {.Id = 4, .Description = "Vacia", .Url = ""}
+            context.review.AddRange(
+                New Review With {.Id = 1, .GameId = 10, .Author = "Player1", .Score = "9", .Comment = "Excelente", .CreatedAt = DateTime.Now},
+                New Review With {.Id = 2, .GameId = 10, .Author = "Player2", .Score = "8", .Comment = "Muy bueno", .CreatedAt = DateTime.Now},
+                New Review With {.Id = 3, .GameId = 99, .Author = "Otro",    .Score = "5", .Comment = "Regular",   .CreatedAt = DateTime.Now}
             )
             Await context.SaveChangesAsync()
 
-            Dim repository = New PlatformRepository(context)
-
-            ' Act
-            Dim result = Await repository.GetAllWithUrlAsync()
+            Dim repository = New ReviewRepository(context)
+            Dim result = Await repository.GetByGameIdAsync(10)
             Dim list = result.ToList()
 
-            ' Assert
             Assert.Equal(2, list.Count)
-            Assert.All(list, Function(p) Assert.False(String.IsNullOrEmpty(p.url)))
+            For Each r In list
+                Assert.Equal(10, r.gameId)
+            Next
         End Using
     End Function
 
     <Fact>
-    Public Async Function GetAllWithUrlAsync_ReturnsCorrectFields() As Task
-        ' Arrange
+    Public Async Function GetByGameIdAsync_ReturnsCorrectFields() As Task
         Using context = CreateInMemoryContext()
-            context.platform.Add(
-                New Platform With {.Id = 1, .Description = "PlayStation 5", .Url = "https://ps5.com"}
+            Dim createdAt = New DateTime(2024, 1, 15)
+            context.review.Add(
+                New Review With {
+                    .Id = 1,
+                    .GameId = 10,
+                    .Author = "Player1",
+                    .Score = "9",
+                    .Comment = "Excelente juego",
+                    .CreatedAt = createdAt
+                }
             )
             Await context.SaveChangesAsync()
 
-            Dim repository = New PlatformRepository(context)
+            Dim repository = New ReviewRepository(context)
+            Dim result = Await repository.GetByGameIdAsync(10)
+            Dim review = result.First()
 
-            ' Act
-            Dim result = Await repository.GetAllWithUrlAsync()
-            Dim platform = result.First()
-
-            ' Assert
-            Assert.Equal(1, platform.id)
-            Assert.Equal("PlayStation 5", platform.description)
-            Assert.Equal("https://ps5.com", platform.url)
+            Assert.Equal(1, review.id)
+            Assert.Equal(10, review.gameId)
+            Assert.Equal("Player1", review.author)
+            Assert.Equal("9", review.score)
+            Assert.Equal("Excelente juego", review.comment)
+            Assert.Equal(createdAt, review.createdAt)
         End Using
     End Function
 
     <Fact>
-    Public Async Function GetAllWithUrlAsync_WhenNoPlatformsWithUrl_ReturnsEmptyList() As Task
-        ' Arrange
+    Public Async Function GetByGameIdAsync_WhenNoReviewsForGame_ReturnsEmptyList() As Task
         Using context = CreateInMemoryContext()
-            context.platform.AddRange(
-                New Platform With {.Id = 1, .Description = "Sin URL", .Url = Nothing},
-                New Platform With {.Id = 2, .Description = "Vacia", .Url = ""}
+            context.review.Add(
+                New Review With {.Id = 1, .GameId = 99, .Author = "Player1", .Score = "9", .Comment = "Otro juego", .CreatedAt = DateTime.Now}
             )
             Await context.SaveChangesAsync()
 
-            Dim repository = New PlatformRepository(context)
+            Dim repository = New ReviewRepository(context)
+            Dim result = Await repository.GetByGameIdAsync(10)
 
-            ' Act
-            Dim result = Await repository.GetAllWithUrlAsync()
-
-            ' Assert
             Assert.Empty(result)
         End Using
     End Function
 
     <Fact>
-    Public Async Function GetAllWithUrlAsync_WhenDatabaseEmpty_ReturnsEmptyList() As Task
-        ' Arrange
+    Public Async Function GetByGameIdAsync_WhenDatabaseEmpty_ReturnsEmptyList() As Task
         Using context = CreateInMemoryContext()
-            Dim repository = New PlatformRepository(context)
+            Dim repository = New ReviewRepository(context)
+            Dim result = Await repository.GetByGameIdAsync(10)
 
-            ' Act
-            Dim result = Await repository.GetAllWithUrlAsync()
-
-            ' Assert
             Assert.Empty(result)
+        End Using
+    End Function
+
+    <Fact>
+    Public Async Function GetByGameIdAsync_WhenMultipleGames_ReturnsOnlyRequestedGame() As Task
+        Using context = CreateInMemoryContext()
+            context.review.AddRange(
+                New Review With {.Id = 1, .GameId = 1, .Author = "A", .Score = "10", .Comment = "Juego 1",             .CreatedAt = DateTime.Now},
+                New Review With {.Id = 2, .GameId = 2, .Author = "B", .Score = "8",  .Comment = "Juego 2",             .CreatedAt = DateTime.Now},
+                New Review With {.Id = 3, .GameId = 3, .Author = "C", .Score = "6",  .Comment = "Juego 3",             .CreatedAt = DateTime.Now},
+                New Review With {.Id = 4, .GameId = 2, .Author = "D", .Score = "7",  .Comment = "Juego 2 otra review", .CreatedAt = DateTime.Now}
+            )
+            Await context.SaveChangesAsync()
+
+            Dim repository = New ReviewRepository(context)
+            Dim result = Await repository.GetByGameIdAsync(2)
+            Dim list = result.ToList()
+
+            Assert.Equal(2, list.Count)
+            For Each r In list
+                Assert.Equal(2, r.gameId)
+            Next
         End Using
     End Function
 
