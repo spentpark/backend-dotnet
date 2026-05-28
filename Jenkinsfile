@@ -38,36 +38,41 @@ pipeline {
             steps {
                 withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
                     sh '''
-                    echo "==> Limpiando resultados anteriores..."
+                    echo "==> Limpiando entornos previos..."
                     rm -rf ./TestResults ./tools
 
-                    echo "==> Instalando SonarScanner en una ruta local del proyecto..."
+                    echo "==> Instalando SonarScanner de manera local..."
                     dotnet tool install dotnet-sonarscanner --tool-path ./tools
 
-                    echo "==> Iniciando análisis de SonarQube..."
+                    echo "==> Iniciando análisis de SonarQube con Red de Seguridad Universal..."
                     ./tools/dotnet-sonarscanner begin \
                       /k:"backend-vbnet" \
                       /d:sonar.host.url="http://172.17.0.1:9000" \
                       /d:sonar.token="${SONAR_TOKEN}" \
                       /d:sonar.exclusions="**/bin/**,**/obj/**,**/*.Tests/**" \
-                      /d:sonar.cs.opencover.reportsPaths="TestResults/coverage.xml"
+                      /d:sonar.cs.vscoveragexml.reportsPaths="TestResults/coverage.xml" \
+                      /d:sonar.cs.opencover.reportsPaths="TestResults/coverage.xml" \
+                      /d:sonar.genericcoverage.reportPaths="TestResults/coverage.xml"
 
                     echo "==> Compilando la solución..."
                     dotnet build --no-restore
 
-                    echo "==> Ejecutando pruebas unitarias..."
-                    # Ejecutamos de forma limpia; las propiedades del .vbproj se encargarán del resto
-                    dotnet test --no-build --collect:"XPlat Code Coverage" --results-directory ./TestResults
+                    echo "==> Ejecutando pruebas y forzando formatos..."
+                    # Generamos tanto el formato nativo como el genérico por consola para no depender solo del .vbproj
+                    dotnet test --no-build --results-directory ./TestResults --collect:"XPlat Code Coverage" -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=opencover,cobertura
 
-                    # Forzamos un descarte por si el colector anidó el archivo en carpetas con GUIDs
+                    # Movemos CUALQUIER reporte que haya generado a la raíz fija esperada
+                    echo "==> Buscando y unificando archivos de cobertura..."
                     if [ -f ./TestResults/*/coverage.opencover.xml ]; then
                         cp ./TestResults/*/coverage.opencover.xml ./TestResults/coverage.xml
                     elif [ -f ./TestResults/*/coverage.cobertura.xml ]; then
-                        # Si generó cobertura estándar, la movemos al destino esperado
                         cp ./TestResults/*/coverage.cobertura.xml ./TestResults/coverage.xml
                     fi
 
-                    echo "==> Finalizando análisis y enviando métricas a SonarQube..."
+                    echo "==> Verificando que el archivo final exista en el disco antes de cerrar..."
+                    ls -la ./TestResults/
+
+                    echo "==> Finalizando análisis y enviando datos..."
                     ./tools/dotnet-sonarscanner end /d:sonar.token="${SONAR_TOKEN}"
                     '''
                 }
