@@ -49,25 +49,15 @@ pipeline {
 
         stage('SonarQube Analysis') {
             steps {
-                script {
-                    // Descarga sonar-scanner si no existe
-                    sh '''
-                        if ! command -v sonar-scanner &> /dev/null; then
-                            apt-get update && apt-get install -y wget unzip
-                            wget https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-5.0.1.3006-linux.zip
-                            unzip sonar-scanner-cli-5.0.1.3006-linux.zip
-                            export PATH=$PATH:$(pwd)/sonar-scanner-5.0.1.3006-linux/bin
-                        fi
-
-                        sonar-scanner \
-                          -Dsonar.projectKey=backend-vbnet \
-                          -Dsonar.sources=. \
-                          -Dsonar.exclusions=**/bin/**,**/obj/**,**/BackendVBNet.Tests/** \
-                          -Dsonar.tests=BackendVBNet.Tests \
-                          -Dsonar.test.inclusions=**/*.vb \
-                          -Dsonar.host.url=${SONAR_HOST_URL} \
-                          -Dsonar.token=${SONAR_TOKEN}
-                    '''
+                withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
+                    sh """
+                    sonar-scanner \
+                    -Dsonar.projectKey=backend-vbnet \
+                    -Dsonar.sources=. \
+                    -Dsonar.exclusions=**/bin/**,**/obj/** \
+                    -Dsonar.host.url=http://172.17.0.1:9000 \
+                    -Dsonar.token=${SONAR_TOKEN}
+                    """
                 }
             }
         }
