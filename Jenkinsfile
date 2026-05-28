@@ -41,6 +41,9 @@ pipeline {
                     echo "==> Limpiando entornos previos..."
                     rm -rf ./TestResults ./tools
 
+                    echo "==> Asegurando restauración completa de paquetes NuGet de pruebas..."
+                    dotnet restore ./BackendVBNet.Tests/BackendVBNet.Tests.vbproj
+
                     echo "==> Instalando SonarScanner de manera local..."
                     dotnet tool install dotnet-sonarscanner --tool-path ./tools
 
@@ -52,12 +55,12 @@ pipeline {
                       /d:sonar.exclusions="**/bin/**,**/obj/**,**/*.Tests/**" \
                       /d:sonar.cs.opencover.reportsPaths="TestResults/coverage.xml"
 
-                    echo "==> Compilando el proyecto principal..."
-                    dotnet build --no-restore
+                    echo "==> Compilando el proyecto principal bajo el radar de Sonar..."
+                    dotnet build BackendVBNet.vbproj --no-restore
 
                     echo "==> Ejecutando pruebas unitarias y generando cobertura..."
-                    # Quitamos --no-build y apuntamos directo al proyecto usando los flags limpios de coverlet
                     dotnet test ./BackendVBNet.Tests/BackendVBNet.Tests.vbproj \
+                      --no-restore \
                       --results-directory ./TestResults \
                       --collect:"XPlat Code Coverage" \
                       -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=opencover
@@ -66,7 +69,7 @@ pipeline {
                     mkdir -p ./TestResults
                     if [ -f ./TestResults/*/coverage.opencover.xml ]; then
                         cp ./TestResults/*/coverage.opencover.xml ./TestResults/coverage.xml
-                        echo "¡Archivo de cobertura unificado con éxito en ./TestResults/coverage.xml!"
+                        echo "¡Archivo de cobertura unificado con éxito!"
                     else
                         echo "ERROR: ¡El archivo de cobertura no fue generado!"
                         exit 1

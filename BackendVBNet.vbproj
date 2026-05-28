@@ -11,12 +11,16 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.0" />
-	<PackageReference Include="Pomelo.EntityFrameworkCore.MySql" Version="8.0.0" />
+	  <PackageReference Include="Pomelo.EntityFrameworkCore.MySql" Version="8.0.0" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="7.0.0" />
   </ItemGroup>
 
   <ItemGroup>
     <Compile Remove="BackendVBNet.Tests\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\BackendVBNet.vbproj" />
   </ItemGroup>
 
 </Project>
