@@ -17,7 +17,7 @@ pipeline {
 
         // Sonar Config
         SONAR_HOST_URL = "http://172.17.0.1:9000"
-        SONAR_TOKEN    = "squ_d27dacd45a6c18772d7e941fd44e1617cf5c4c38"
+        SONAR_TOKEN    = credentials('sonar-token') //"squ_d27dacd45a6c18772d7e941fd44e1617cf5c4c38"
 
         DOTNET_CLI_HOME = '/tmp/dotnet_cli_home'
     }
