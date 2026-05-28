@@ -35,7 +35,7 @@ Public Class ReviewRepositoryTests
     End Function
 
     <Fact>
-    Public Async Function GetByGameIdAsync_ReturnsCorrectFields() As Task
+    Public Async Function GetByGameIdAsync_ReturnsCorrectMappedFields() As Task
         Using context = CreateInMemoryContext()
             Dim createdAt = New DateTime(2024, 1, 15)
             context.review.Add(
@@ -54,6 +54,7 @@ Public Class ReviewRepositoryTests
             Dim result = Await repository.GetByGameIdAsync(10)
             Dim review = result.First()
 
+            ' Cubre el .Select con todos los campos mapeados (lineas 18-24)
             Assert.Equal(1, review.id)
             Assert.Equal(10, review.gameId)
             Assert.Equal("Player1", review.author)
@@ -67,7 +68,14 @@ Public Class ReviewRepositoryTests
     Public Async Function GetByGameIdAsync_WhenNoReviewsForGame_ReturnsEmptyList() As Task
         Using context = CreateInMemoryContext()
             context.review.Add(
-                New Review With {.Id = 1, .GameId = 99, .Author = "Player1", .Score = "9", .Comment = "Otro juego", .CreatedAt = DateTime.Now}
+                New Review With {
+                    .Id = 1,
+                    .GameId = 99,
+                    .Author = "Player1",
+                    .Score = "9",
+                    .Comment = "Otro juego",
+                    .CreatedAt = DateTime.Now
+                }
             )
             Await context.SaveChangesAsync()
 
