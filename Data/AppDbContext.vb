@@ -13,7 +13,7 @@ Public Class AppDbContext
 
     Protected Overrides Sub OnConfiguring(optionsBuilder As DbContextOptionsBuilder)
         If Not optionsBuilder.IsConfigured Then
-            Dim conn As String = "server=192.168.1.13;port=3306;database=game;user=admin;password=password;"
+            Dim conn As String = "server=192.168.1.82;port=3306;database=game;user=admin;password=password;"
             optionsBuilder.UseMySql(conn, ServerVersion.AutoDetect(conn))
         End If
     End Sub

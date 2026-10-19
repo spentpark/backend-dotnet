@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
@@ -15,12 +15,13 @@
     <PackageReference Include="Swashbuckle.AspNetCore" Version="7.0.0" />
   </ItemGroup>
 
+  <!-- El proyecto de pruebas vive en esta carpeta: se excluye del contenido de la aplicacion
+       (si no, sus bin/obj se copian al paquete NuGet). -->
   <ItemGroup>
     <Compile Remove="BackendVBNet.Tests\**" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="..\BackendVBNet.vbproj" />
+    <Content Remove="BackendVBNet.Tests\**" />
+    <EmbeddedResource Remove="BackendVBNet.Tests\**" />
+    <None Remove="BackendVBNet.Tests\**" />
   </ItemGroup>
 
 </Project>

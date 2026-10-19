@@ -129,4 +129,52 @@ Public Class GameServiceTests
         _repositoryMock.Verify(Function(r) r.GetByIdAsync(gameId), Times.Once())
     End Function
 
+    ' ==========================================
+    ' PRUEBAS DE ASINCRONIA (repositorio lento)
+    ' ==========================================
+
+    <Fact>
+    Public Async Function GetGamesByPlatformAsync_WhenRepositoryIsSlow_AwaitsAndReturnsResult() As Task
+        ' Arrange: tarea pendiente que fuerza la suspension real del Await
+        Dim tcs = New TaskCompletionSource(Of PagedResult(Of GameSummary))()
+        _repositoryMock.Setup(Function(r) r.FindByPlatformPaginatedAsync("PS1", 1, 20)).Returns(tcs.Task)
+
+        Dim pending = _gameService.GetGamesByPlatformAsync("PS1", 0, 0)
+        Assert.False(pending.IsCompleted)
+
+        Dim expected As New PagedResult(Of GameSummary)() With {.page = 1, .limit = 20}
+        tcs.SetResult(expected)
+
+        ' Act & Assert
+        Assert.Same(expected, Await pending)
+    End Function
+
+    <Fact>
+    Public Async Function SearchGamesByTitleAsync_WhenRepositoryIsSlow_AwaitsAndReturnsResult() As Task
+        Dim tcs = New TaskCompletionSource(Of PagedResult(Of GameSummary))()
+        _repositoryMock.Setup(Function(r) r.FindByTitlePaginatedAsync("Metroid", 1, 20)).Returns(tcs.Task)
+
+        Dim pending = _gameService.SearchGamesByTitleAsync("Metroid", 0, 0)
+        Assert.False(pending.IsCompleted)
+
+        Dim expected As New PagedResult(Of GameSummary)() With {.page = 1, .limit = 20}
+        tcs.SetResult(expected)
+
+        Assert.Same(expected, Await pending)
+    End Function
+
+    <Fact>
+    Public Async Function GetGameByIdAsync_WhenRepositoryIsSlow_AwaitsAndReturnsGame() As Task
+        Dim tcs = New TaskCompletionSource(Of Game)()
+        _repositoryMock.Setup(Function(r) r.GetByIdAsync(42)).Returns(tcs.Task)
+
+        Dim pending = _gameService.GetGameByIdAsync(42)
+        Assert.False(pending.IsCompleted)
+
+        Dim expected As New Game() With {.Id = 42, .Title = "Vagrant Story"}
+        tcs.SetResult(expected)
+
+        Assert.Same(expected, Await pending)
+    End Function
+
 End Class
