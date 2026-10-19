@@ -7,10 +7,10 @@ pipeline {
     }
 
     environment {
-        NEXUS_URL           = "172.17.0.1:8081"
+        NEXUS_URL           = "192.168.1.82:8081"
         NEXUS_REPOSITORY    = "nuget-nexus-repo"
         NEXUS_CREDENTIAL_ID = "nexus"
-        SONAR_HOST_URL      = "http://172.17.0.1:9000"
+        SONAR_HOST_URL      = "http://192.168.1.82:9000"
     }
 
     stages {
@@ -80,7 +80,7 @@ pipeline {
                 '''
             }
         }
-
+        /*
         stage('Publish to Nexus') {
             steps {
                 withCredentials([usernamePassword(
@@ -102,6 +102,7 @@ pipeline {
                 }
             }
         }
+        */
     }
 
     post {
