@@ -37,16 +37,13 @@ pipeline {
                 // Idempotente: si el agente ya tiene un SDK 8.x no hace nada; si no,
                 // lo instala en $HOME/.dotnet (sobrevive al cleanWs del final).
                 sh '''
-                    export DOTNET_ROOT="$HOME/.dotnet"
-                    export PATH="$DOTNET_ROOT:$PATH"
-
                     if command -v dotnet >/dev/null 2>&1 && dotnet --list-sdks 2>/dev/null | grep -q '^8\\.'; then
                         echo "==> SDK .NET disponible: $(dotnet --version)"
                     else
-                        echo "==> Instalando .NET SDK ${DOTNET_CHANNEL} en $DOTNET_ROOT ..."
+                        echo "==> Instalando .NET SDK ${DOTNET_CHANNEL} en $HOME/.dotnet ..."
                         curl -sSL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh
-                        bash /tmp/dotnet-install.sh --channel "$DOTNET_CHANNEL" --install-dir "$DOTNET_ROOT" --no-path
-                        "$DOTNET_ROOT/dotnet" --version
+                        bash /tmp/dotnet-install.sh --channel "$DOTNET_CHANNEL" --install-dir "$HOME/.dotnet" --no-path
+                        "$HOME/.dotnet/dotnet" --version
                     fi
                 '''
             }
@@ -56,8 +53,10 @@ pipeline {
             steps {
                 script {
                     sh '''
-                        export DOTNET_ROOT="$HOME/.dotnet"
-                        export PATH="$DOTNET_ROOT:$PATH"
+                        if [ -x "$HOME/.dotnet/dotnet" ]; then
+                            export DOTNET_ROOT="$HOME/.dotnet"
+                            export PATH="$DOTNET_ROOT:$PATH"
+                        fi
 
                         echo "==> Diagnostico del agente:"
                         dotnet --version
@@ -71,8 +70,10 @@ pipeline {
                     // 1) Camino normal: nuget.org.
                     def direct = sh(
                         script: '''
-                            export DOTNET_ROOT="$HOME/.dotnet"
-                            export PATH="$DOTNET_ROOT:$PATH"
+                            if [ -x "$HOME/.dotnet/dotnet" ]; then
+                                export DOTNET_ROOT="$HOME/.dotnet"
+                                export PATH="$DOTNET_ROOT:$PATH"
+                            fi
                             dotnet restore BackendVBNet.sln --source "$NUGET_OFFICIAL"
                         ''',
                         returnStatus: true
@@ -117,50 +118,55 @@ pipeline {
 
         stage('Build & SonarQube Analysis') {
             steps {
-                withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
-                    sh '''
-                        export DOTNET_ROOT="$HOME/.dotnet"
-                        export PATH="$DOTNET_ROOT:$PATH"
-
-                        echo "==> Limpiando salidas previas..."
-                        rm -rf ./TestResults ./tools ./nupkg
-
-                        echo "==> Instalando SonarScanner..."
-                        dotnet tool install dotnet-sonarscanner --tool-path ./tools
-
-                        echo "==> Iniciando analisis de SonarQube..."
-                        ./tools/dotnet-sonarscanner begin \
-                          /k:"${SONAR_PROJECT_KEY}" \
-                          /d:sonar.host.url="${SONAR_HOST_URL}" \
-                          /d:sonar.token="${SONAR_TOKEN}" \
-                          '/d:sonar.exclusions=**/bin/**,**/obj/**,**/*.Tests/**' \
-                          '/d:sonar.vbnet.opencover.reportsPaths=**/TestResults/**/coverage.opencover.xml' \
-                          '/d:sonar.vbnet.vstest.reportsPaths=**/TestResults/*.trx'
-                    '''
-
-                    try {
+                // try/finally no es un "step": va dentro de script {} (Declarative).
+                script {
+                    withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
                         sh '''
-                            export DOTNET_ROOT="$HOME/.dotnet"
-                            export PATH="$DOTNET_ROOT:$PATH"
+                            if [ -x "$HOME/.dotnet/dotnet" ]; then
+                                export DOTNET_ROOT="$HOME/.dotnet"
+                                export PATH="$DOTNET_ROOT:$PATH"
+                            fi
 
-                            echo "==> Compilando..."
-                            dotnet build BackendVBNet.sln --no-restore --configuration Debug
+                            echo "==> Limpiando salidas previas..."
+                            rm -rf ./TestResults ./tools ./nupkg
 
-                            echo "==> Ejecutando pruebas y generando cobertura..."
-                            dotnet test BackendVBNet.sln \
-                              --no-restore \
-                              --results-directory ./TestResults \
-                              "--logger:trx;LogFileName=resultado_pruebas.trx" \
-                              "--collect:XPlat Code Coverage" \
-                              -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=opencover
+                            echo "==> Instalando SonarScanner..."
+                            dotnet tool install dotnet-sonarscanner --tool-path ./tools
 
-                            echo "==> Reportes generados:"
-                            find ./TestResults -name "coverage.*.xml" -type f
+                            echo "==> Iniciando analisis de SonarQube..."
+                            ./tools/dotnet-sonarscanner begin \
+                              /k:"${SONAR_PROJECT_KEY}" \
+                              /d:sonar.host.url="${SONAR_HOST_URL}" \
+                              /d:sonar.token="${SONAR_TOKEN}" \
+                              '/d:sonar.exclusions=**/bin/**,**/obj/**,**/*.Tests/**' \
+                              '/d:sonar.vbnet.opencover.reportsPaths=**/TestResults/**/coverage.opencover.xml' \
+                              '/d:sonar.vbnet.vstest.reportsPaths=**/TestResults/*.trx'
                         '''
 
-                        // Informativo: el umbral de 93% lo aplica el propio proyecto
-                        // de pruebas (coverlet.msbuild: Threshold / ThresholdType=line).
-                        script {
+                        try {
+                            sh '''
+                                if [ -x "$HOME/.dotnet/dotnet" ]; then
+                                    export DOTNET_ROOT="$HOME/.dotnet"
+                                    export PATH="$DOTNET_ROOT:$PATH"
+                                fi
+
+                                echo "==> Compilando..."
+                                dotnet build BackendVBNet.sln --no-restore --configuration Debug
+
+                                echo "==> Ejecutando pruebas y generando cobertura..."
+                                dotnet test BackendVBNet.sln \
+                                  --no-restore \
+                                  --results-directory ./TestResults \
+                                  "--logger:trx;LogFileName=resultado_pruebas.trx" \
+                                  "--collect:XPlat Code Coverage" \
+                                  -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=opencover
+
+                                echo "==> Reportes generados:"
+                                find ./TestResults -name "coverage.*.xml" -type f
+                            '''
+
+                            // Informativo: el umbral de 93% lo aplica el propio
+                            // proyecto de pruebas (coverlet.msbuild: Threshold).
                             def reports = findFiles(glob: '**/coverage.cobertura.xml')
                             if (reports.length == 0) {
                                 echo 'AVISO: no se encontro coverage.cobertura.xml.'
@@ -173,16 +179,18 @@ pipeline {
                                     echo 'AVISO: no se pudo leer line-rate del reporte de cobertura.'
                                 }
                             }
+                        } finally {
+                            // Se finaliza el analisis aunque fallen build o pruebas, para
+                            // que SonarQube reciba los datos (antes no se llamaba a end).
+                            sh '''
+                                if [ -x "$HOME/.dotnet/dotnet" ]; then
+                                    export DOTNET_ROOT="$HOME/.dotnet"
+                                    export PATH="$DOTNET_ROOT:$PATH"
+                                fi
+                                echo "==> Finalizando analisis de SonarQube..."
+                                ./tools/dotnet-sonarscanner end /d:sonar.token="${SONAR_TOKEN}"
+                            '''
                         }
-                    } finally {
-                        // Se finaliza el analisis aunque fallen build o pruebas, para
-                        // que SonarQube reciba los datos (antes no se llamaba a end).
-                        sh '''
-                            export DOTNET_ROOT="$HOME/.dotnet"
-                            export PATH="$DOTNET_ROOT:$PATH"
-                            echo "==> Finalizando analisis de SonarQube..."
-                            ./tools/dotnet-sonarscanner end /d:sonar.token="${SONAR_TOKEN}"
-                        '''
                     }
                 }
             }
@@ -191,8 +199,10 @@ pipeline {
         stage('Package') {
             steps {
                 sh '''
-                    export DOTNET_ROOT="$HOME/.dotnet"
-                    export PATH="$DOTNET_ROOT:$PATH"
+                    if [ -x "$HOME/.dotnet/dotnet" ]; then
+                        export DOTNET_ROOT="$HOME/.dotnet"
+                        export PATH="$DOTNET_ROOT:$PATH"
+                    fi
                     mkdir -p ./nupkg
                     dotnet pack BackendVBNet.vbproj \
                       --configuration Release \
@@ -204,6 +214,7 @@ pipeline {
 
     post {
         always {
+            // script {} es obligatorio para usar if/def dentro de post.
             script {
                 // Sin workspace (agente perdido) estos pasos lanzan
                 // "Required context class hudson.FilePath is missing" y tapan
