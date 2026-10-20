@@ -32,19 +32,57 @@ pipeline {
             }
         }
 
-        stage('Preparar SDK .NET') {
+        stage('Preparar entorno .NET') {
             steps {
-                // Idempotente: si el agente ya tiene un SDK 8.x no hace nada; si no,
-                // lo instala en $HOME/.dotnet (sobrevive al cleanWs del final).
+                // 1) libicu: sin el, cualquier binario .NET aborta con
+                //    "Couldn't find a valid ICU package installed on the system".
+                // 2) SDK 8: se reutiliza si ya esta, si no se instala en $HOME/.dotnet.
+                // 3) .ci-env: variables que los demas stages cargan con '. ./.ci-env'
+                //    (cada sh de Jenkins arranca en un shell nuevo).
                 sh '''
-                    if command -v dotnet >/dev/null 2>&1 && dotnet --list-sdks 2>/dev/null | grep -q '^8\\.'; then
-                        echo "==> SDK .NET disponible: $(dotnet --version)"
-                    else
+                    echo "==> Comprobando libicu..."
+                    ICU_OK=0
+                    if ldconfig -p 2>/dev/null | grep -q 'libicu'; then
+                        ICU_OK=1
+                        echo "==> libicu presente."
+                    elif command -v apt-get >/dev/null 2>&1 && command -v sudo >/dev/null 2>&1; then
+                        echo "==> Instalando libicu-dev (necesario para .NET)..."
+                        if sudo -n apt-get update >/dev/null 2>&1 && sudo -n apt-get install -y libicu-dev >/dev/null 2>&1; then
+                            ICU_OK=1
+                            echo "==> libicu-dev instalado."
+                        fi
+                    fi
+
+                    echo "==> Comprobando .NET SDK..."
+                    # El SDK instalado por builds anteriores vive en $HOME/.dotnet:
+                    # se pone en el PATH antes de comprobar para reutilizarlo.
+                    if [ -x "$HOME/.dotnet/dotnet" ]; then
+                        export DOTNET_ROOT="$HOME/.dotnet"
+                        export PATH="$DOTNET_ROOT:$PATH"
+                    fi
+
+                    HAS_SDK8=0
+                    if [ "$ICU_OK" = "1" ] && command -v dotnet >/dev/null 2>&1 && dotnet --list-sdks 2>/dev/null | grep -q '^8\\.'; then
+                        HAS_SDK8=1
+                    fi
+                    if [ "$HAS_SDK8" = "0" ]; then
                         echo "==> Instalando .NET SDK ${DOTNET_CHANNEL} en $HOME/.dotnet ..."
                         curl -sSL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh
                         bash /tmp/dotnet-install.sh --channel "$DOTNET_CHANNEL" --install-dir "$HOME/.dotnet" --no-path
-                        "$HOME/.dotnet/dotnet" --version
                     fi
+
+                    {
+                        echo 'export DOTNET_ROOT="$HOME/.dotnet"'
+                        echo 'export PATH="$DOTNET_ROOT:$PATH"'
+                        if [ "$ICU_OK" != "1" ]; then
+                            echo 'export DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1'
+                        fi
+                    } > .ci-env
+
+                    echo "==> Entorno CI generado (.ci-env):"
+                    cat .ci-env
+                    . ./.ci-env
+                    echo "==> dotnet: $(dotnet --version)"
                 '''
             }
         }
@@ -53,10 +91,7 @@ pipeline {
             steps {
                 script {
                     sh '''
-                        if [ -x "$HOME/.dotnet/dotnet" ]; then
-                            export DOTNET_ROOT="$HOME/.dotnet"
-                            export PATH="$DOTNET_ROOT:$PATH"
-                        fi
+                        . ./.ci-env
 
                         echo "==> Diagnostico del agente:"
                         dotnet --version
@@ -70,10 +105,7 @@ pipeline {
                     // 1) Camino normal: nuget.org.
                     def direct = sh(
                         script: '''
-                            if [ -x "$HOME/.dotnet/dotnet" ]; then
-                                export DOTNET_ROOT="$HOME/.dotnet"
-                                export PATH="$DOTNET_ROOT:$PATH"
-                            fi
+                            . ./.ci-env
                             dotnet restore BackendVBNet.sln --source "$NUGET_OFFICIAL"
                         ''',
                         returnStatus: true
@@ -93,8 +125,7 @@ pipeline {
                                 passwordVariable: 'NEXUS_PASS'
                             )]) {
                                 sh """
-                                    export DOTNET_ROOT="\$HOME/.dotnet"
-                                    export PATH="\$DOTNET_ROOT:\$PATH"
+                                    . ./.ci-env
                                     dotnet nuget remove source nuget.org || true
                                     dotnet nuget add source '${nexusSource}' \
                                       --name nexus \
@@ -122,10 +153,7 @@ pipeline {
                 script {
                     withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
                         sh '''
-                            if [ -x "$HOME/.dotnet/dotnet" ]; then
-                                export DOTNET_ROOT="$HOME/.dotnet"
-                                export PATH="$DOTNET_ROOT:$PATH"
-                            fi
+                            . ./.ci-env
 
                             echo "==> Limpiando salidas previas..."
                             rm -rf ./TestResults ./tools ./nupkg
@@ -145,10 +173,7 @@ pipeline {
 
                         try {
                             sh '''
-                                if [ -x "$HOME/.dotnet/dotnet" ]; then
-                                    export DOTNET_ROOT="$HOME/.dotnet"
-                                    export PATH="$DOTNET_ROOT:$PATH"
-                                fi
+                                . ./.ci-env
 
                                 echo "==> Compilando..."
                                 dotnet build BackendVBNet.sln --no-restore --configuration Debug
@@ -183,10 +208,7 @@ pipeline {
                             // Se finaliza el analisis aunque fallen build o pruebas, para
                             // que SonarQube reciba los datos (antes no se llamaba a end).
                             sh '''
-                                if [ -x "$HOME/.dotnet/dotnet" ]; then
-                                    export DOTNET_ROOT="$HOME/.dotnet"
-                                    export PATH="$DOTNET_ROOT:$PATH"
-                                fi
+                                . ./.ci-env
                                 echo "==> Finalizando analisis de SonarQube..."
                                 ./tools/dotnet-sonarscanner end /d:sonar.token="${SONAR_TOKEN}"
                             '''
@@ -199,10 +221,7 @@ pipeline {
         stage('Package') {
             steps {
                 sh '''
-                    if [ -x "$HOME/.dotnet/dotnet" ]; then
-                        export DOTNET_ROOT="$HOME/.dotnet"
-                        export PATH="$DOTNET_ROOT:$PATH"
-                    fi
+                    . ./.ci-env
                     mkdir -p ./nupkg
                     dotnet pack BackendVBNet.vbproj \
                       --configuration Release \

@@ -88,9 +88,14 @@ cobertura → `dotnet pack`.
   quedaba sin nodo ni workspace y moría con
   `MissingContextVariableException: Required context class hudson.FilePath is missing`, además de
   ese mismo error en el bloque `post`.
-- **SDK**: el stage "Preparar SDK .NET" es idempotente: si el agente ya tiene un SDK 8.x no hace
-  nada; si no, lo instala en `$HOME/.dotnet` (sobrevive al `cleanWs` final). Todos los `sh`
-  anteponen ese directorio al `PATH`.
+- **SDK y libicu**: el stage "Preparar entorno .NET" es idempotente. Instala `libicu-dev`
+  (sin ICU cualquier binario .NET aborta con `Couldn't find a valid ICU package installed on
+  the system`) usando `sudo apt-get`, igual que otros pipelines del entorno; si no hay
+  `sudo`/`apt`, activa `DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1`. Después reutiliza el SDK 8.x
+  si existe y, si no, lo instala en `$HOME/.dotnet`.
+- **Variables entre stages**: cada `sh` de Jenkins arranca en un shell nuevo, así que el stage
+  de preparación escribe `.ci-env` (`DOTNET_ROOT`, `PATH`, e invariante si hace falta) y los
+  demás stages lo cargan con `. ./.ci-env`.
 - **Umbral**: lo aplica el propio `BackendVBNet.Tests.vbproj` (`Threshold=93`), así que un
   `dotnet test` con cobertura por debajo del 93 % rompe el stage.
 - **Restore**: intenta `nuget.org`; si el agente no tiene salida a internet, reintenta contra
