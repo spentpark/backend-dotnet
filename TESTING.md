@@ -77,3 +77,33 @@ cobertura baja, `dotnet test` termina con error.
 - `AppDbContext.OnConfiguring` — rama de *design-time* (solo se ejecuta sin `DbContextOptions`).
 
 Ambas son envoltorios sin lógica propia.
+
+## Integración continua (Jenkins)
+
+`Jenkinsfile` ejecuta: checkout → preparar SDK → restore → `dotnet build` → `dotnet test` con
+cobertura → `dotnet pack`.
+
+- **Agente**: `agent any`, igual que el resto de pipelines del entorno. Se intentó un agente
+  Docker (`image 'mcr.microsoft.com/dotnet/sdk:8.0'`) y Jenkins no lo aprovisionaba: el build se
+  quedaba sin nodo ni workspace y moría con
+  `MissingContextVariableException: Required context class hudson.FilePath is missing`, además de
+  ese mismo error en el bloque `post`.
+- **SDK**: el stage "Preparar SDK .NET" es idempotente: si el agente ya tiene un SDK 8.x no hace
+  nada; si no, lo instala en `$HOME/.dotnet` (sobrevive al `cleanWs` final). Todos los `sh`
+  anteponen ese directorio al `PATH`.
+- **Umbral**: lo aplica el propio `BackendVBNet.Tests.vbproj` (`Threshold=93`), así que un
+  `dotnet test` con cobertura por debajo del 93 % rompe el stage.
+- **Restore**: intenta `nuget.org`; si el agente no tiene salida a internet, reintenta contra
+  Nexus (`NEXUS_HOST_URL`, credencial `nexus`).
+- **SonarQube**: `dotnet-sonarscanner end` se ejecuta en un bloque `finally`, de modo que el
+  análisis se publica aunque fallen la compilación o las pruebas (antes no se llamaba y el
+  proyecto nunca aparecía en Sonar).
+- **Artefactos**: se archivan el `.trx` y los `coverage.*.xml` para poder diagnosticar un build
+  fallido sin depender de la consola. El `post` comprueba `env.WORKSPACE` antes de archivar o
+  limpiar, para no tapar el error real con el `hudson.FilePath is missing`.
+- **Saltos de línea**: `.gitattributes` fuerza LF en `Jenkinsfile`, `Dockerfile` y `*.sh` como
+  prevención: con CRLF, bash recibe el último argumento con un `\r` pegado y `dotnet restore`
+  falla con `MSB1009: El archivo de proyecto no existe` (el `\r` es invisible en la consola).
+- **Diagnóstico**: el stage de restore imprime `dotnet --version`, los SDKs, los orígenes NuGet y
+  el commit construido, para que un fallo de entorno se vea directamente en el log.
+

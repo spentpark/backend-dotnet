@@ -1,0 +1,7 @@
+# Archivos que se ejecutan en Linux (Jenkins, Docker, scripts) deben viajar con LF.
+# Con CRLF, bash recibe argumentos con un \r pegado y el build falla con errores
+# del tipo "MSB1009: el archivo de proyecto no existe" o "dotnet: not found".
+Jenkinsfile   text eol=lf
+Dockerfile    text eol=lf
+.dockerignore text eol=lf
+*.sh          text eol=lf
