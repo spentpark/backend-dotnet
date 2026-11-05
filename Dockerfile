@@ -1,5 +1,3 @@
-# syntax=docker/dockerfile:1
-
 # ---------- Stage 1: build ----------
 # Use the official .NET 8.0 SDK image to build the app
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
@@ -17,8 +15,8 @@ RUN dotnet restore BackendVBNet.vbproj
 # Copy the rest of the source code
 COPY . .
 
-# Build the application
-RUN dotnet build BackendVBNet.vbproj -c Release -o /app/build
+# Build the application (no re-restore: already done above)
+RUN dotnet build BackendVBNet.vbproj -c Release -o /app/build --no-restore
 
 # Publish the application
 RUN dotnet publish BackendVBNet.vbproj -c Release -o /app/publish --no-restore
