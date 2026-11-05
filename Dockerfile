@@ -7,18 +7,21 @@ FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 # Set the working directory
 WORKDIR /src
 
-# Copy the project file and restore dependencies
-COPY BackendVBNet.vbproj .
-RUN dotnet restore
+# Copy the project file and restore dependencies.
+# The app is always built/published from the .vbproj (not the solution): the
+# test project is excluded in .dockerignore and BackendVBNet.sln references it,
+# so an argument-less `dotnet build` would fail with MSB3202.
+COPY BackendVBNet.vbproj ./
+RUN dotnet restore BackendVBNet.vbproj
 
 # Copy the rest of the source code
 COPY . .
 
 # Build the application
-RUN dotnet build -c Release -o /app/build
+RUN dotnet build BackendVBNet.vbproj -c Release -o /app/build
 
 # Publish the application
-RUN dotnet publish -c Release -o /app/publish
+RUN dotnet publish BackendVBNet.vbproj -c Release -o /app/publish --no-restore
 
 # ---------- Stage 2: runtime ----------
 # Use the official .NET 8.0 runtime image for the final stage
