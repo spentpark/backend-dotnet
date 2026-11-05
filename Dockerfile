@@ -39,6 +39,15 @@ EXPOSE 5000
 ENV ASPNETCORE_URLS=http://+:5000 \
     DOTNET_NOLOGO=1 \
     DOTNET_CLI_TELEMETRY_OPTOUT=1
+# JWT/CORS/rate limit se pueden sobreescribir en runtime (mismos nombres que Node):
+# ENV JWT_SECRET=...
+# ENV JWT_ISSUER=rss-game-node
+# ENV JWT_AUDIENCE=rss-game-node-api
+# ENV AUTH_USERNAME=admin
+# ENV AUTH_ROLE=admin
+# ENV AUTH_PASSWORD_HASH=...
+# ENV CORS_ORIGINS=https://midominio.com
+# ENV API_DOCS_ENABLED=false
 # Example: Override connection string via environment variable
 # ENV ConnectionStrings__MariaDB=server=host.docker.internal;port=3306;database=game;user=root;password=yourpassword;
 

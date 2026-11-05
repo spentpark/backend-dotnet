@@ -5,11 +5,15 @@ Contexto de instrucciones para agentes que trabajen en este repositorio.
 ## 1. Visión general
 
 API REST de catálogo de videojuegos escrita en **Visual Basic .NET sobre ASP.NET Core 8**.
-Expone consultas de juegos (por plataforma, por título y por id), plataformas activas y
-reseñas por juego. Persiste en **MySQL/MariaDB** mediante **EF Core 8 + Pomelo** y documenta
-con **Swagger (Swashbuckle)**.
+Expone los **mismos endpoints que `backend-node20`** (bajo `/api`) y aplica **la misma
+seguridad**: JWT HS256 (secreto/`issuer`/`audience` compartidos con `backend-node20` y
+`rss-game-node`), rol `admin` en escrituras, cabeceras tipo Helmet, CORS con allowlist,
+cuerpo JSON de 10 kb, rate limiting y errores JSON. Persiste en **MySQL/MariaDB** con
+**EF Core 8 + Pomelo** y documenta con Swagger en `/api-docs`.
 
-No hay frontend ni capa de autenticación en este repositorio.
+- La aplicación escucha en el puerto **5000** (su puerto original; el backend Node usa 3000).
+- El frontend [`frontend-csharp`](../frontend-csharp) consume este backend con los mismos
+  endpoints y credenciales.
 
 ### Stack
 
@@ -19,173 +23,168 @@ No hay frontend ni capa de autenticación en este repositorio.
 | Lenguaje | Visual Basic .NET (`BackendVBNet.vbproj`) |
 | Web | ASP.NET Core MVC / `ControllerBase` |
 | ORM | EF Core 8.0 + `Pomelo.EntityFrameworkCore.MySql` 8.0 |
-| Documentación | Swashbuckle.AspNetCore 7.0 |
+| Auth | `Microsoft.AspNetCore.Authentication.JwtBearer` 8.0 + `BCrypt.Net-Next` 4.0 |
+| Documentación | Swashbuckle.AspNetCore 7.0 (`/api-docs`, `/api-docs.json`) |
 | Tests | xUnit 2.4.2, Moq 4.20, EF Core InMemory, `Microsoft.AspNetCore.Mvc.Testing` |
 | Cobertura | coverlet (collector + msbuild), umbral **93 % de líneas** |
-| CI | Jenkins (contenedor `mcr.microsoft.com/dotnet/sdk:8.0`) + SonarQube |
+| CI | Jenkins + SonarQube |
 
 ## 2. Estructura
 
 ```
-Program.vb                  # composition root: DI, DbContext, Swagger, pipeline
-Controllers/                # GamesController, PlatformsController, ReviewsController
-Services/                   # I*Service + implementaciones (reglas de negocio ligeras)
-Repositories/               # I*Repository + implementaciones (EF Core / consultas)
-Data/AppDbContext.vb        # DbSet(Of Game/Platform/Review)
-Models/                     # entidades + DTOs de salida (GameSummary, PagedResult(Of T), ...)
-BackendVBNet.Tests/         # xUnit: controllers, services, repositories, DbContext, integración
-docs/                       # guías de desarrollo y quick start (en español)
-Dockerfile / Jenkinsfile    # imagen de runtime y pipeline CI
+Program.vb                  # composition root: DI, JWT, CORS, pipeline, Swagger, EF Core
+Controllers/                # Main, Auth, Games, SimilarGames, Platforms, Reviews, Stats
+Security/                   # SecurityConfig, AuthService y middlewares (headers, body, rate limit, errores)
+Services/                   # I*Service + implementaciones (reglas de negocio)
+Repositories/               # I*Repository + implementaciones (EF Core)
+Data/AppDbContext.vb        # DbSet(Of Game/Platform/Review/SimilarGame)
+Models/                     # entidades + DTOs de salida (GameSummary, PaginatedResult(Of T), ...)
+BackendVBNet.Tests/         # xUnit: repositorios, servicios, seguridad, Program e integración HTTP
+docs/                       # guías de desarrollo y quick start
+Dockerfile / Jenkinsfile    # imagen de runtime (puerto 5000) y pipeline CI
 ```
 
-`RootNamespace` efectivo: **`BackendVBNet`** (los archivos no declaran `Namespace`; los tests
-importan `BackendVBNet.Controllers`, `BackendVBNet.Models`, etc.).
+`RootNamespace` efectivo: **`BackendVBNet`** (los archivos no declaran `Namespace`).
 
 ## 3. Arquitectura
 
 Flujo de una petición:
 
 ```
-Controller (ControllerBase, atributos de ruta, sin lógica)
-    → I*Service (normaliza parámetros, orquesta)
-        → I*Repository (EF Core: Where/OrderBy/Skip/Take, proyección a *Summary)
-            → AppDbContext → MySQL/MariaDB
+Middleware (errores JSON -> headers -> CORS -> rate limit -> body limit)
+    → JwtBearer (401/403 JSON)
+        → Controller (atributos de ruta, sin lógica)
+            → I*Service
+                → I*Repository (EF Core)
+                    → AppDbContext → MySQL/MariaDB
 ```
 
-Reglas observadas:
+- Cada dependencia se resuelve por interfaz (`IGameService`, `IGameRepository`, …) y se
+  registra con `AddScoped` en `Program.vb`.
+- Los controladores de negocio llevan `<Authorize>`; las escrituras añaden
+  `<Authorize(Roles:="admin")>`. Solo `MainController` (saludo/hello) y el login son
+  `<AllowAnonymous>`.
+- La paginación usa `PaginatedResult(Of T)` con el contrato de Node:
+  `{ "data": [...], "pagination": { currentPage, perPage, totalRecords, totalPages } }`.
+  Los servicios normalizan `page >= 1` y `limit` (por defecto 10).
 
-- Cada dependencia se resuelve por **interfaz** (`IGameService`, `IGameRepository`, …) y se
-  registra con `AddScoped` en `Program.vb`. Toda nueva pieza debe seguir ese patrón y
-  registrarse allí.
-- Los repositorios devuelven **DTOs** (`GameSummary`, `PlatformSummary`, `ReviewSummary`)
-  para listados y la entidad completa solo en consultas por id.
-- La paginación se modela con `PagedResult(Of T)` (`page`, `limit`, `total`, `data`); el
-  service fuerza `page = 1` y `limit = 20` cuando llegan valores `<= 0`.
-- Los controladores usan rutas por atributo (`<Route("api/...")>` + `<ApiController>`) y
-  `Async Function ... As Task(Of IActionResult)`.
+### Endpoints (mismos nombres que backend-node20)
 
-### Endpoints actuales
-
-| Método | Ruta | Descripción |
+| Método | Ruta | Auth |
 |---|---|---|
-| GET | `/api/games/platform?platform=&page=&limit=` | Juegos paginados por plataforma |
-| GET | `/api/games/search?title=&page=&limit=` | Búsqueda paginada por título |
-| GET | `/api/games/{id}` | Detalle; `404` si no existe |
-| GET | `/api/platforms` | Plataformas activas |
-| GET | `/api/reviews/{gameId}` | Reseñas de un juego |
+| GET | `/api/saludo` | pública |
+| GET | `/api/hello` | pública |
+| POST | `/api/auth/login` | pública |
+| GET | `/api/auth/me` | JWT |
+| GET | `/api/games` (`platform`, `genre`, `year`, `decade`, `players`, `sort`, `page`, `limit`) | JWT |
+| GET | `/api/games/search?title=` | JWT |
+| GET | `/api/games/random` (`platform`, `genre`) | JWT |
+| GET | `/api/games/{id}` | JWT |
+| GET | `/api/games/{id}/similar?limit=` | JWT |
+| POST / PUT / DELETE | `/api/games[/{id}]` | JWT admin |
+| GET | `/api/platforms` (array) | JWT |
+| GET | `/api/platforms/{id}` | JWT |
+| GET | `/api/platforms/{id}/top-games` | JWT |
+| POST / PUT / DELETE | `/api/platforms[/{id}]` | JWT admin |
+| GET | `/api/reviews/{id}` | JWT |
+| GET | `/api/stats` | JWT |
+| GET | `/api-docs`, `/api-docs.json` | pública (por entorno) |
 
-> `docs/VBNet-Quick-Start.md` menciona `/api/games/platform-search`; la ruta real es
-> `/api/games/search`.
+Contrato detallado de referencia: `backend-node20/endpoints.md` y
+`backend-python/endpoints.md` (esta app replica el mismo contrato HTTP).
 
-## 4. Build, run y test
+## 4. Seguridad
 
-Prerrequisitos: **.NET 8 SDK**, acceso a una instancia **MySQL/MariaDB** con el esquema
-`game`. No hay carpeta `Migrations`: el esquema se gestiona fuera del proyecto.
+- **JWT HS256** (`Security/SecurityConfig.vb` + `Security/AuthService.vb`): mismas variables
+  que Node (`JWT_SECRET`, `JWT_EXPIRES_IN`, `JWT_ISSUER`, `JWT_AUDIENCE`, `AUTH_USERNAME`,
+  `AUTH_ROLE`, `AUTH_PASSWORD_HASH`). El login valida con **bcrypt** y firma el token con
+  claims `sub` y `role`. `MapInboundClaims = False` para conservar los nombres de claim.
+- **401/403 JSON** con `{"error": "No autorizado"}` / `{"error": "Acceso denegado"}` y
+  cabecera `WWW-Authenticate: Bearer`.
+- **Cabeceras Helmet** (CSP, HSTS, nosniff, X-Frame-Options, COOP/CORP…). Sin CSP en
+  `/api-docs`. `X-Powered-By` no se emite.
+- **CORS**: allowlist (`CORS_ORIGINS` la sobreescribe) + cualquier localhost en desarrollo.
+- **Rate limiting** en memoria por IP: API 300/15 min y login 5/15 min
+  (`API_RATE_LIMIT_*`, `AUTH_RATE_LIMIT_*`); responde 429 con `RateLimit-*` y `Retry-After`.
+  Con `TRUST_PROXY=true` usa `X-Forwarded-For`.
+- **Cuerpo** máximo 10 kb → 413; errores 404/500 JSON sin stack trace.
+- **Swagger por entorno**: activo por defecto; en producción solo con
+  `API_DOCS_ENABLED=true`; `false` lo apaga siempre. La validación de arranque falla cerrada
+  en producción si faltan `JWT_SECRET` o `AUTH_PASSWORD_HASH`.
+- Login y `/api/auth/me` añaden `Cache-Control: no-store` y `Pragma: no-cache`.
+
+## 5. Build, run y test
+
+Prerrequisitos: **.NET 8 SDK** y acceso a una instancia MySQL/MariaDB con el esquema `game`.
 
 ```powershell
 dotnet restore
 dotnet build
-dotnet run                      # Kestrel por defecto: http://localhost:5000
-# Swagger: http://localhost:5000/swagger
-```
-
-No existe `Properties/launchSettings.json`; para fijar puerto:
-
-```powershell
-dotnet run --urls "http://localhost:5000"
+dotnet run                      # Kestrel: http://localhost:5000
+# Swagger: http://localhost:5000/api-docs
+# OpenAPI: http://localhost:5000/api-docs.json
 ```
 
 Tests (incluye cobertura; el umbral de 93 % puede hacer fallar la ejecución):
 
 ```powershell
 dotnet test BackendVBNet.sln
-dotnet test BackendVBNet.sln --filter FullyQualifiedName~GamesControllerTests
+dotnet test BackendVBNet.sln --filter FullyQualifiedName~ApiIntegrationTests
 ```
 
 Docker:
 
 ```powershell
 docker build -t backend-vbnet .
-docker run -d -p 5000:5000 --name backend-vbnet backend-vbnet
+docker run -d -p 5000:5000 --env-file .env --name backend-vbnet backend-vbnet
 ```
 
-Empaquetado (usado por el pipeline):
+## 6. Configuración
 
-```powershell
-dotnet pack BackendVBNet.vbproj -c Release -o ./nupkg
-```
+`appsettings.json` incluye valores de desarrollo (connection string, secreto JWT, hash
+bcrypt). En un entorno real se sobreescriben con variables de entorno:
 
-## 5. Configuración de base de datos
+- `ConnectionStrings__MariaDB` (o `ConnectionStrings__GameDb`) → cadena de conexión.
+- `JWT_SECRET`, `JWT_EXPIRES_IN`, `JWT_ISSUER`, `JWT_AUDIENCE`, `AUTH_USERNAME`,
+  `AUTH_ROLE`, `AUTH_PASSWORD_HASH`.
+- `API_RATE_LIMIT_*`, `AUTH_RATE_LIMIT_*`, `TRUST_PROXY`, `CORS_ORIGINS`,
+  `API_DOCS_ENABLED`, `ENVIRONMENT`/`NODE_ENV`.
+- `Database:ServerVersion` opcional: evita `ServerVersion.AutoDetect` (lo usan pruebas/CI).
 
-`appsettings.json` declara `ConnectionStrings:MariaDB`, pero **`Program.vb` no la usa**:
-construye el connection string como literal y llama `UseMySql` directamente. Además,
-`AppDbContext.OnConfiguring` contiene otro connection string hardcodeado como fallback
-(con credenciales distintas) que solo aplica si el contexto se instancia sin opciones.
+`Program.ResolveConnectionString` prioriza `GameDb`, luego `MariaDB` y, si no hay ninguna,
+usa la cadena histórica.
 
-Al tocar la configuración de BD, ten en cuenta:
+## 7. Convenciones de código
 
-- Cambiar `appsettings.json` **no** altera la conexión de la app.
-- El patrón correcto (documentado en `docs/VBNet-Development-Guide.md`) es
-  `builder.Configuration.GetConnectionString("MariaDB")`.
-- Hay credenciales reales en texto plano en `Program.vb` y `appsettings.json`. No las
-  reproduzcas en logs, tests ni commits; para cambios nuevos usa variables de entorno
-  (`ConnectionStrings__MariaDB`) o user-secrets.
-
-## 6. Convenciones de código
-
-- **VB.NET idiomático**: `Imports` explícitos, `Async/Await`, `Function`/`Sub` con tipos
-  explícitos, `ReadOnly` para dependencias inyectadas.
+- **VB.NET idiomático**: `Imports` explícitos, `Async/Await`, tipos explícitos, `ReadOnly`.
 - **Nombres**: clases/métodos/propiedades públicas en `PascalCase`; las propiedades de los
-  DTOs y de las entidades (`id`, `title`, `page`, `limit`, `data`) van en **camelCase**
-  porque definen el contrato JSON de la API. Mantén esa distinción.
-- **Mapeo de columnas legacy**: las entidades usan `<Column("...")>` para columnas con
-  nombres no idiomáticos (`image_Large`, `releasedate`, `3djuegos_url` → `_3djuegos_Url`,
-  `esbr_message`). No renombres esas propiedades sin actualizar el atributo.
-- **Interfaces**: prefijo `I` + nombre del servicio/repositorio, declaradas en el mismo
-  directorio que su implementación (`IGameService.vb` junto a `GameService.vb`).
+  DTOs y entidades que definen el contrato JSON van en **camelCase** o llevan
+  `<JsonPropertyName>` con el nombre exacto de Node/columna.
+- **Mapeo de columnas legacy**: `<Column("...")>` para `image_Large`, `releasedate`,
+  `3djuegos_url` → `_3djuegos_Url`, `esbr_message`, `id_game`, `date`, etc.
 - **Sin lógica de negocio en controllers** ni acceso directo a `AppDbContext` desde ellos.
-- `Option Strict` no está configurado en el `.vbproj` (queda en el default `Off`). El código
-  nuevo debe ser tipado explícitamente de todos modos.
 - Comentarios y documentación en **español**.
 
-## 7. Convenciones de tests
+## 8. Convenciones de tests
 
-- Framework **xUnit**; patrón `Arrange / Act / Assert` con esos comentarios.
-- Nombres de test: `Metodo_Condicion_ResultadoEsperado`
-  (ej. `GetById_ReturnsNotFound_WhenGameDoesNotExist`).
-- Unitarios de controller/service/repository: `TestAppDbContext` sobre
-  `UseInMemoryDatabase(Guid.NewGuid().ToString())` y sobreescritura vacía de
-  `OnConfiguring`; `Using context = ...` para el dispose.
-- `Moq` disponible para dobles de servicio/repositorio.
-- Integración: `WebApplicationFactory(Of Program)` para validar el contenedor DI y
-  `/swagger/v1/swagger.json`.
-- Cobertura: `Include = [BackendVBNet]*`, `Threshold = 93`, `ThresholdType = line`,
-  `ThresholdStat = total`. Al añadir código, añade tests que mantengan el umbral.
+- xUnit, patrón Arrange / Act / Assert; nombres `Metodo_Condicion_ResultadoEsperado`.
+- Repositorios/servicios: `TestSupport.CreateContext()` (InMemory) y `SeedCatalog`.
+- Integración: `ApiWebFactory` (`WebApplicationFactory(Of Program)`) sustituye MySQL por
+  InMemory, mantiene JWT/CORS/rate limit reales y emite tokens con `CreateToken` para
+  probar 401/403/CRUD.
+- Cobertura: `Include = [BackendVBNet]*`, `Threshold = 93`, `ThresholdType = line`.
 
-> Nota: `BackendVBNet.Tests/ProgramIntegrationTests` **no tiene extensión `.vb`**, por lo que
-> el glob de compilación por defecto (`**/*.vb`) no lo incluye. Si se esperan esos tests en
-> la suite, el archivo debe renombrarse a `ProgramIntegrationTests.vb`.
+## 9. CI/CD
 
-## 8. CI/CD
+`Jenkinsfile`: restore → build → `dotnet test` con cobertura opencover → SonarQube →
+`dotnet pack`. SonarQube excluye `bin/`, `obj/`, `*.Tests/**` y consume
+`TestResults/coverage.opencover.xml`.
 
-`Jenkinsfile` (agente Docker `mcr.microsoft.com/dotnet/sdk:8.0`):
+## 10. Al modificar el proyecto
 
-1. `dotnet restore` de ambos proyectos.
-2. `dotnet-sonarscanner begin` → `dotnet build BackendVBNet.sln --no-restore` →
-   `dotnet test` con logger TRX y cobertura **opencover** en `./TestResults` →
-   `dotnet-sonarscanner end`.
-3. `dotnet pack -c Release -o ./nupkg`.
-4. Publicación a Nexus comentada.
-
-SonarQube excluye `**/bin/**`, `**/obj/**`, `**/*.Tests/**` y consume
-`**/TestResults/**/coverage.opencover.xml`.
-
-## 9. Al modificar el proyecto
-
-1. `dotnet restore` y `dotnet build` antes de dar un cambio por terminado.
-2. `dotnet test BackendVBNet.sln` (verifica también el umbral de cobertura).
-3. Si añades un servicio/repositorio: crea interfaz + implementación, regístralo en
-   `Program.vb` y añade su test.
-4. Si añades un endpoint: ruta bajo `api/`, `Async`, `IActionResult`, `404` con
-   `NotFound()` y sin lógica en el controller.
-5. No commitees `bin/`, `obj/`, `TestResults/` ni credenciales.
+1. `dotnet build` y `dotnet test BackendVBNet.sln` antes de dar un cambio por terminado.
+2. Si añades un endpoint: ruta bajo `api/`, `Async`, `IActionResult`, `<Authorize>`
+   (y `<Authorize(Roles:="admin")>` si es escritura), errores JSON `{"error": "..."}`.
+3. Si añades un servicio/repositorio: interfaz + implementación, registro en `Program.vb`
+   y pruebas que mantengan el umbral de cobertura.
+4. No commitees `bin/`, `obj/`, `TestResults/` ni credenciales reales.

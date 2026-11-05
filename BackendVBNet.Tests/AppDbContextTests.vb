@@ -1,192 +1,69 @@
 Imports System
+Imports System.Linq
 Imports System.Threading.Tasks
 Imports Microsoft.EntityFrameworkCore
 Imports Xunit
 
+''' <summary>Pruebas del DbContext (DbSets y operaciones básicas con InMemory).</summary>
 Public Class AppDbContextTests
 
-    Private Function CreateInMemoryContext() As AppDbContext
-        Dim options = New DbContextOptionsBuilder(Of AppDbContext)() _
-            .UseInMemoryDatabase(databaseName:=Guid.NewGuid().ToString()) _
-            .Options
-        Return New AppDbContext(options)
-    End Function
-
-    ' =============================================
-    ' Tests de construccion y configuracion
-    ' =============================================
-
     <Fact>
-    Public Sub Constructor_WithOptions_CreatesContext()
-        ' Arrange & Act
-        Using context = CreateInMemoryContext()
-            ' Assert - no lanza excepcion
+    Public Sub Constructor_CreatesContextAndDbSets()
+        Using context = CreateContext()
             Assert.NotNull(context)
-        End Using
-    End Sub
-
-    <Fact>
-    Public Sub OnConfiguring_WhenAlreadyConfigured_DoesNotOverrideConnection()
-        ' Arrange - pasamos opciones InMemory (ya configuradas)
-        Dim options = New DbContextOptionsBuilder(Of AppDbContext)() _
-            .UseInMemoryDatabase(databaseName:="TestOnConfiguring_" & Guid.NewGuid().ToString()) _
-            .Options
-
-        ' Act & Assert - si OnConfiguring sobreescribiera, intentaria conectar a MySQL y fallaria
-        Using context = New AppDbContext(options)
-            Assert.NotNull(context)
-            ' Si llegamos aqui sin excepcion, OnConfiguring respeto la configuracion existente
-        End Using
-    End Sub
-
-    ' =============================================
-    ' Tests de DbSets
-    ' =============================================
-
-    <Fact>
-    Public Sub DbSet_Games_IsNotNull()
-        Using context = CreateInMemoryContext()
             Assert.NotNull(context.games)
-        End Using
-    End Sub
-
-    <Fact>
-    Public Sub DbSet_Platform_IsNotNull()
-        Using context = CreateInMemoryContext()
             Assert.NotNull(context.platform)
-        End Using
-    End Sub
-
-    <Fact>
-    Public Sub DbSet_Review_IsNotNull()
-        Using context = CreateInMemoryContext()
             Assert.NotNull(context.review)
+            Assert.NotNull(context.similar_game)
         End Using
     End Sub
 
-    ' =============================================
-    ' Tests de operaciones CRUD basicas
-    ' =============================================
-
     <Fact>
-    Public Async Function DbSet_Games_CanAddAndRetrieve() As Task
-        Using context = CreateInMemoryContext()
-            ' Arrange
-            Dim game = New Game With {
-                .Id = 1,
-                .Title = "Elden Ring",
-                .Description = "Open world RPG"
-            }
-
-            ' Act
-            context.games.Add(game)
-            Await context.SaveChangesAsync()
-
-            Dim retrieved = Await context.games.FindAsync(1)
-
-            ' Assert
-            Assert.NotNull(retrieved)
-            Assert.Equal("Elden Ring", retrieved.Title)
-        End Using
-    End Function
-
-    <Fact>
-    Public Async Function DbSet_Platform_CanAddAndRetrieve() As Task
-        Using context = CreateInMemoryContext()
-            ' Arrange
-            Dim platform = New Platform With {
-                .Id = 1,
-                .Description = "PlayStation 5",
-                .Url = "https://ps5.com"
-            }
-
-            ' Act
-            context.platform.Add(platform)
-            Await context.SaveChangesAsync()
-
-            Dim retrieved = Await context.platform.FindAsync(1)
-
-            ' Assert
-            Assert.NotNull(retrieved)
-            Assert.Equal("PlayStation 5", retrieved.Description)
-            Assert.Equal("https://ps5.com", retrieved.Url)
-        End Using
-    End Function
-
-    <Fact>
-    Public Async Function DbSet_Review_CanAddAndRetrieve() As Task
-        Using context = CreateInMemoryContext()
-            ' Arrange
+    Public Async Function DbSets_CanAddAndRetrieveEntities() As Task
+        Using context = CreateContext()
+            Dim game = New Game With {.Id = 1, .Title = "Elden Ring"}
+            Dim platform = New Platform With {.Id = 1, .Description = "PS5", .Url = "https://ps5"}
             Dim review = New Review With {
-                .Id = 1,
-                .GameId = 1,
-                .Author = "Player1",
-                .Score = "9",
-                .Comment = "Excelente juego",
-                .CreatedAt = New DateTime(2024, 1, 15)
+                .Id = 1, .IdGame = 1, .Name = "Press", .Score = "90", .ReviewDate = "2024-01-01"
             }
+            Dim similar = New SimilarGame With {.IdGame = 1, .Json = "[]"}
 
-            ' Act
+            context.games.Add(game)
+            context.platform.Add(platform)
             context.review.Add(review)
+            context.similar_game.Add(similar)
             Await context.SaveChangesAsync()
 
-            Dim retrieved = Await context.review.FindAsync(1)
-
-            ' Assert
-            Assert.NotNull(retrieved)
-            Assert.Equal("Player1", retrieved.Author)
-            Assert.Equal("9", retrieved.Score)
+            Assert.Equal("Elden Ring", (Await context.games.FindAsync(1)).Title)
+            Assert.Equal("PS5", (Await context.platform.FindAsync(1)).Description)
+            Assert.Equal("Press", (Await context.review.FindAsync(1)).Name)
+            Assert.Equal("[]", (Await context.similar_game.FindAsync(1)).Json)
         End Using
     End Function
 
     <Fact>
-    Public Async Function DbSet_Games_CanDelete() As Task
-        Using context = CreateInMemoryContext()
-            ' Arrange
-            Dim game = New Game With {
-                .Id = 1,
-                .Title = "Elden Ring",
-                .Description = "Open world RPG"
-            }
+    Public Async Function DbSets_CanDeleteEntity() As Task
+        Using context = CreateContext()
+            Dim game = New Game With {.Id = 1, .Title = "Elden Ring"}
             context.games.Add(game)
             Await context.SaveChangesAsync()
 
-            ' Act
             context.games.Remove(game)
             Await context.SaveChangesAsync()
 
-            Dim retrieved = Await context.games.FindAsync(1)
-
-            ' Assert
-            Assert.Null(retrieved)
+            Assert.Null(Await context.games.FindAsync(1))
         End Using
     End Function
 
     <Fact>
-    Public Async Function DbSet_MultipleContexts_AreIsolated() As Task
-        ' Arrange - dos contextos con bases de datos distintas
-        Dim options1 = New DbContextOptionsBuilder(Of AppDbContext)() _
-            .UseInMemoryDatabase("IsolationTest_DB1") _
-            .Options
-        Dim options2 = New DbContextOptionsBuilder(Of AppDbContext)() _
-            .UseInMemoryDatabase("IsolationTest_DB2") _
-            .Options
+    Public Async Function Contexts_AreIsolated() As Task
+        Using first = CreateContext()
+            Using second = CreateContext()
+                first.games.Add(New Game With {.Id = 1, .Title = "Uno"})
+                Await first.SaveChangesAsync()
 
-        Using context1 = New AppDbContext(options1)
-            Using context2 = New AppDbContext(options2)
-                ' Act - agregar solo en context1
-                context1.platform.Add(New Platform With {
-                    .Id = 1,
-                    .Description = "PlayStation 5",
-                    .Url = "https://ps5.com"
-                })
-                Await context1.SaveChangesAsync()
-
-                ' Assert - context2 no debe ver los datos de context1
-                Dim countInContext2 = Await context2.platform.CountAsync()
-                Assert.Equal(0, countInContext2)
+                Assert.Equal(0, Await second.games.CountAsync())
             End Using
         End Using
     End Function
-
 End Class

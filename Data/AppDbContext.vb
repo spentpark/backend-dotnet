@@ -1,5 +1,10 @@
 Imports Microsoft.EntityFrameworkCore
 
+''' <summary>
+''' Contexto EF Core de la aplicación. Solo declara los DbSet; la cadena de
+''' conexión y el proveedor se configuran en <c>Program.ConfigureDatabase</c>
+''' (o con el proveedor InMemory en las pruebas).
+''' </summary>
 Public Class AppDbContext
     Inherits DbContext
 
@@ -10,11 +15,5 @@ Public Class AppDbContext
     Public Property games As DbSet(Of Game)
     Public Property platform As DbSet(Of Platform)
     Public Property review As DbSet(Of Review)
-
-    Protected Overrides Sub OnConfiguring(optionsBuilder As DbContextOptionsBuilder)
-        If Not optionsBuilder.IsConfigured Then
-            Dim conn As String = "server=192.168.1.82;port=3306;database=game;user=admin;password=password;"
-            optionsBuilder.UseMySql(conn, ServerVersion.AutoDetect(conn))
-        End If
-    End Sub
+    Public Property similar_game As DbSet(Of SimilarGame)
 End Class
