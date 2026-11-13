@@ -177,8 +177,24 @@ usa la cadena histórica.
 ## 9. CI/CD
 
 `Jenkinsfile`: restore → build → `dotnet test` con cobertura opencover → SonarQube →
-`dotnet pack`. SonarQube excluye `bin/`, `obj/`, `*.Tests/**` y consume
-`TestResults/coverage.opencover.xml`.
+`dotnet pack` → **deploy** por SSH al servidor Docker `192.168.1.82` (credencial
+`docker-server-ssh`, parámetro `DEPLOY_ENABLED`). SonarQube excluye `bin/`, `obj/`,
+`*.Tests/**` y consume `TestResults/coverage.opencover.xml`.
+
+### Deploy (stage `Deploy backend-dotnet en servidor Docker`)
+
+- Sincroniza el workspace por `tar` + `ssh` a
+  `/home/spentpark/gitDeploy/gitdotnet/backend-dotnet` (excluye `bin/`, `obj/`,
+  `TestResults/`, `tools/`, `nupkg/`, `.ci-env` y `.git/`).
+- Construye la imagen **en el servidor** (`docker build -t backend-dotnet`) **antes** de
+  tocar el contenedor: si la compilación falla, la versión anterior sigue corriendo.
+- `docker compose up -d --force-recreate backend-dotnet` con
+  `/home/spentpark/gitDeploy/gitdotnet/docker-compose.yml` (servicio y contenedor
+  `backend-dotnet`, puerto 5000), comprueba que el contenedor usa la imagen recién
+  construida y espera respuesta 2xx de `GET /api/saludo` (sonda sin base de datos;
+  `/api/hello` sí consulta MariaDB).
+- Parámetros del job: `DEPLOY_ENABLED`, `DEPLOY_HOST`, `SSH_CREDENTIAL_ID`, `DEPLOY_DIR`,
+  `COMPOSE_FILE`, `COMPOSE_SERVICE`, `CONTAINER_NAME`, `APP_PORT`, `PROBE_PATH`.
 
 ## 10. Al modificar el proyecto
 
