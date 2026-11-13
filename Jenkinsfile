@@ -642,9 +642,12 @@ echo "================================================================"
         }
         failure {
             echo "Pipeline FAILED"
-            if (params.DEPLOY_ENABLED == null || params.DEPLOY_ENABLED) {
-                echo "Si el fallo fue en el despliegue: ssh spentpark@${params.DEPLOY_HOST ?: '192.168.1.82'} docker logs --tail 200 ${params.CONTAINER_NAME ?: 'backend-dotnet'}"
-                echo "Compose del stack .NET: ${params.DEPLOY_DIR ?: '/home/spentpark/gitDeploy/gitdotnet'}/docker-compose.yml"
+            // script {} es obligatorio para usar if/def dentro de post.
+            script {
+                if (params.DEPLOY_ENABLED == null || params.DEPLOY_ENABLED) {
+                    echo "Si el fallo fue en el despliegue: ssh spentpark@${params.DEPLOY_HOST ?: '192.168.1.82'} docker logs --tail 200 ${params.CONTAINER_NAME ?: 'backend-dotnet'}"
+                    echo "Compose del stack .NET: ${params.DEPLOY_DIR ?: '/home/spentpark/gitDeploy/gitdotnet'}/docker-compose.yml"
+                }
             }
         }
     }
