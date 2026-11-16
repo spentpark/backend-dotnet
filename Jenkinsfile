@@ -17,10 +17,10 @@ pipeline {
             description: 'Credencial Jenkins "SSH Username with private key" con acceso al servidor Docker.')
 
         string(name: 'DEPLOY_DIR', defaultValue: '/home/spentpark/gitDeploy/gitdotnet',
-            description: 'Carpeta del servidor donde está el docker-compose.yml del stack .NET. Vacío = se detecta desde las labels del contenedor backend-dotnet.')
+            description: 'Carpeta del servidor donde se publica el docker-compose.yml DEL PROYECTO y se despliega. Vacío = se detecta desde las labels del contenedor backend-dotnet.')
 
         string(name: 'COMPOSE_FILE', defaultValue: '',
-            description: 'Archivo compose (vacío = se detecta desde el contenedor; si no, docker-compose.yml).')
+            description: 'Nombre con el que se publica el docker-compose.yml DEL PROYECTO en el servidor (vacío = docker-compose.yml).')
 
         string(name: 'COMPOSE_SERVICE', defaultValue: 'backend-dotnet',
             description: 'Nombre del servicio en docker-compose.yml (el compose del stack .NET usa backend-dotnet / frontend-dotnet).')
@@ -286,7 +286,10 @@ pipeline {
 #  2. Localiza el docker-compose.yml del stack .NET (por defecto
 #     ~/gitDeploy/gitdotnet) y valida el servicio backend-dotnet.
 #  3. Sincroniza el código al contexto de build (DEPLOY_DIR/backend-dotnet),
-#     excluyendo las salidas del CI (bin, obj, TestResults, tools, nupkg...).
+#     excluyendo las salidas del CI (bin, obj, TestResults, tools, nupkg...), y
+#     publica el docker-compose.yml DEL PROYECTO como
+#     ${DEPLOY_DIR}/${COMPOSE_FILE} (fuente de verdad: no se usa el compose que
+#     viva en la máquina).
 #  4. Construye la imagen en el servidor ANTES de detener nada: si la
 #     compilación Docker falla, la versión anterior sigue corriendo.
 #  5. Detiene (si estaba) y levanta el contenedor con la imagen recién
@@ -440,6 +443,13 @@ for EXCL in ./.git ./.vscode ./.idea ./bin ./obj ./BackendVBNet.Tests/bin ./Back
 done
 
 tar czf - -C "${WORKSPACE}" ${TAR_EXCLUDES} . | ssh ${SSH_OPTS} "${SSH_TARGET}" "set -e; mkdir -p '${DEPLOY_DIR}'; rm -rf '${REMOTE_TMP}'; mkdir -p '${REMOTE_TMP}'; tar xzf - -C '${REMOTE_TMP}'; rm -rf '${REMOTE_REPO}'; mv '${REMOTE_TMP}' '${REMOTE_REPO}'; echo '  - Código sincronizado correctamente (backend-dotnet)'"
+
+# El docker-compose.yml DEL PROYECTO es la fuente de verdad del stack: se
+# publica en el servidor en cada despliegue para no depender de un archivo que
+# viva solo en la máquina (si desaparece, el deploy fallaba en la validación).
+echo "  - Publicando docker-compose.yml del proyecto en ${DEPLOY_DIR}/${COMPOSE_FILE}..."
+REMOTE_COMPOSE_HASH="$(ssh ${SSH_OPTS} "${SSH_TARGET}" "set -e; cp -f '${REMOTE_REPO}/docker-compose.yml' '${DEPLOY_DIR}/${COMPOSE_FILE}'; sha256sum '${DEPLOY_DIR}/${COMPOSE_FILE}'")"
+echo "  - Compose publicado (sha256: ${REMOTE_COMPOSE_HASH%% *})"
 
 # Se valida el compose después de sincronizar para que el contexto de build exista.
 echo "  - Validando compose y servicio del backend..."

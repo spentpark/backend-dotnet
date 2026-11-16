@@ -1,0 +1,55 @@
+# Docker Compose DEL STACK .NET (backend-dotnet + frontend-dotnet).
+#
+# Este archivo es la FUENTE DE VERDAD del despliegue: el Jenkinsfile lo publica
+# en el servidor como ${DEPLOY_DIR}/docker-compose.yml y despliega con él. El
+# docker-compose.yml que viva en la máquina NO se lee ni se usa: se sobrescribe
+# en cada despliegue, igual que hace el pipeline de frontend-react19.
+#
+# Las rutas `build:` son relativas a DEPLOY_DIR en el servidor, porque el
+# Jenkinsfile sincroniza este repositorio en ${DEPLOY_DIR}/backend-dotnet.
+#
+# IMPORTANTE para hosts con poca RAM: construir las dos imágenes .NET a la vez
+# puede tumbar el frontend de BuildKit ("frontend grpc server closed unexpectedly").
+# En ese caso compila de forma secuencial:
+#   docker compose build backend-dotnet
+#   docker compose build frontend-dotnet
+# o limita la concurrencia:
+#   COMPOSE_PARALLEL_LIMIT=1 docker compose build
+services:
+  backend-dotnet:
+    image: backend-dotnet
+    build: ./backend-dotnet
+    container_name: backend-dotnet
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      API_DOCS_ENABLED: "false"
+      # La imagen trae appsettings.json de desarrollo. Sobreescribe aquí la BD
+      # real del despliegue y los secretos si no coinciden con ese archivo:
+      # ConnectionStrings__MariaDB: "server=192.168.1.82;port=3306;database=game;user=root;password=..."
+      # JWT_SECRET: "..."
+      # JWT_ISSUER: rss-game-node
+      # JWT_AUDIENCE: rss-game-node-api
+      # AUTH_USERNAME: admin
+      # AUTH_ROLE: admin
+      # AUTH_PASSWORD_HASH: "..."
+
+  frontend-dotnet:
+    image: frontend-dotnet
+    build: ./frontend-csharp
+    container_name: frontend-dotnet
+    restart: unless-stopped
+    depends_on:
+      - backend-dotnet
+    ports:
+      # El contenedor escucha en 8080 (ASPNETCORE_URLS de la imagen); se publica
+      # en el 5068 del host, que es el puerto que ya usaba el frontend.
+      - "5068:8080"
+    environment:
+      # Llamada servidor-a-servidor dentro de la red de Compose (no usar
+      # localhost/host.docker.internal).
+      ApiBaseUrl: http://backend-dotnet:5000/
+      ApiUsername: admin
+      ApiPassword: Dev-aekiu4-9mHsG

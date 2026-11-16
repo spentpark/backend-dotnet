@@ -186,13 +186,18 @@ usa la cadena histórica.
 - Sincroniza el workspace por `tar` + `ssh` a
   `/home/spentpark/gitDeploy/gitdotnet/backend-dotnet` (excluye `bin/`, `obj/`,
   `TestResults/`, `tools/`, `nupkg/`, `.ci-env` y `.git/`).
+- Antes de desplegar, publica el `docker-compose.yml` **del repositorio** (raíz del
+  proyecto) como `/home/spentpark/gitDeploy/gitdotnet/docker-compose.yml`: el compose
+  del repo es la fuente de verdad y se sobrescribe en cada despliegue (no se usa el
+  compose que viva en la máquina, igual que en el pipeline de `frontend-react19`).
 - Construye la imagen **en el servidor** (`docker build -t backend-dotnet`) **antes** de
   tocar el contenedor: si la compilación falla, la versión anterior sigue corriendo.
 - `docker compose up -d --force-recreate backend-dotnet` con
   `/home/spentpark/gitDeploy/gitdotnet/docker-compose.yml` (servicio y contenedor
   `backend-dotnet`, puerto 5000), comprueba que el contenedor usa la imagen recién
   construida y espera respuesta 2xx de `GET /api/saludo` (sonda sin base de datos;
-  `/api/hello` sí consulta MariaDB).
+  `/api/hello` sí consulta MariaDB). El compose mantiene además el servicio
+  `frontend-dotnet` del stack compartido `gitdotnet`.
 - Parámetros del job: `DEPLOY_ENABLED`, `DEPLOY_HOST`, `SSH_CREDENTIAL_ID`, `DEPLOY_DIR`,
   `COMPOSE_FILE`, `COMPOSE_SERVICE`, `CONTAINER_NAME`, `APP_PORT`, `PROBE_PATH`.
 
