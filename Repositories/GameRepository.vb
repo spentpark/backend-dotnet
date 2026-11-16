@@ -185,38 +185,62 @@ Public Class GameRepository
     Private Shared Sub CopyFields(source As Game, target As Game)
         ' Actualizacion parcial como `UPDATE ... SET ?` de Node: los campos
         ' ausentes en el body llegan como Nothing y no se sobreescriben.
+        CopyTextFieldValues(source, target)
+        CopyImageFieldValues(source, target)
+        CopyCatalogFieldValues(source, target)
+        CopyVideoFieldValues(source, target)
+        CopyScoreFieldValues(source, target)
+        CopyLinkFieldValues(source, target)
+    End Sub
+
+    Private Shared Sub CopyTextFieldValues(source As Game, target As Game)
         If source.Title IsNot Nothing Then target.Title = source.Title
         If source.Description IsNot Nothing Then target.Description = source.Description
         If source.GameDBId.HasValue Then target.GameDBId = source.GameDBId
+    End Sub
+
+    Private Shared Sub CopyImageFieldValues(source As Game, target As Game)
         If source.Image_Large IsNot Nothing Then target.Image_Large = source.Image_Large
         If source.Image_Medium IsNot Nothing Then target.Image_Medium = source.Image_Medium
         If source.Image_Original IsNot Nothing Then target.Image_Original = source.Image_Original
         If source.Image_Front IsNot Nothing Then target.Image_Front = source.Image_Front
+    End Sub
+
+    Private Shared Sub CopyCatalogFieldValues(source As Game, target As Game)
         If source.Platform IsNot Nothing Then target.Platform = source.Platform
         If source.Publisher IsNot Nothing Then target.Publisher = source.Publisher
         If source.ReleaseDate IsNot Nothing Then target.ReleaseDate = source.ReleaseDate
         If source.Players IsNot Nothing Then target.Players = source.Players
         If source.Genre IsNot Nothing Then target.Genre = source.Genre
+    End Sub
+
+    Private Shared Sub CopyVideoFieldValues(source As Game, target As Game)
         If source.Youtube_Trailer IsNot Nothing Then target.Youtube_Trailer = source.Youtube_Trailer
         If source.Youtube_Walk IsNot Nothing Then target.Youtube_Walk = source.Youtube_Walk
-        If source.Wiki_Url IsNot Nothing Then target.Wiki_Url = source.Wiki_Url
-        If source.Wiki_Page IsNot Nothing Then target.Wiki_Page = source.Wiki_Page
         If source.Youtube_Ending IsNot Nothing Then target.Youtube_Ending = source.Youtube_Ending
         If source.Youtube_Secrets IsNot Nothing Then target.Youtube_Secrets = source.Youtube_Secrets
         If source.Youtube_Ost IsNot Nothing Then target.Youtube_Ost = source.Youtube_Ost
         If source.Youtube_Speedrun IsNot Nothing Then target.Youtube_Speedrun = source.Youtube_Speedrun
         If source.Youtube_Review IsNot Nothing Then target.Youtube_Review = source.Youtube_Review
         If source.Spotify_Ost IsNot Nothing Then target.Spotify_Ost = source.Spotify_Ost
-        If source.Ign_Url IsNot Nothing Then target.Ign_Url = source.Ign_Url
+    End Sub
+
+    Private Shared Sub CopyScoreFieldValues(source As Game, target As Game)
         If source.Metacritic_Url IsNot Nothing Then target.Metacritic_Url = source.Metacritic_Url
         If source.Metacritic_Score IsNot Nothing Then target.Metacritic_Score = source.Metacritic_Score
         If source.Metacritic_ScoreU IsNot Nothing Then target.Metacritic_ScoreU = source.Metacritic_ScoreU
         If source._3djuegos_Url IsNot Nothing Then target._3djuegos_Url = source._3djuegos_Url
-        If source.Areajugones_Url IsNot Nothing Then target.Areajugones_Url = source.Areajugones_Url
-        If source.Meristation_Url IsNot Nothing Then target.Meristation_Url = source.Meristation_Url
         If source._3djuegos_Score IsNot Nothing Then target._3djuegos_Score = source._3djuegos_Score
+        If source.Areajugones_Url IsNot Nothing Then target.Areajugones_Url = source.Areajugones_Url
         If source.Opencritic_Url IsNot Nothing Then target.Opencritic_Url = source.Opencritic_Url
         If source.Esrb_Letter IsNot Nothing Then target.Esrb_Letter = source.Esrb_Letter
         If source.Esbr_Message IsNot Nothing Then target.Esbr_Message = source.Esbr_Message
+    End Sub
+
+    Private Shared Sub CopyLinkFieldValues(source As Game, target As Game)
+        If source.Wiki_Url IsNot Nothing Then target.Wiki_Url = source.Wiki_Url
+        If source.Wiki_Page IsNot Nothing Then target.Wiki_Page = source.Wiki_Page
+        If source.Ign_Url IsNot Nothing Then target.Ign_Url = source.Ign_Url
+        If source.Meristation_Url IsNot Nothing Then target.Meristation_Url = source.Meristation_Url
     End Sub
 End Class

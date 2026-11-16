@@ -18,6 +18,9 @@ Public Class SecurityConfigTests
         {"AUTH_PASSWORD_HASH", "$2b$12$21YmeGUU8ULL3ngZm3btLeSMswy9oOBQNXhQAdrvGTLGKP1zClT32"}
     }
 
+    ' Array reutilizable: CA1861 pide no crear arrays constantes en cada llamada.
+    Private Shared ReadOnly CustomOrigins As String() = {"http://a.test", "http://b.test"}
+
     <Fact>
     Public Sub EnvironmentName_UsesConfiguredValueOrDefault()
         Assert.Equal("development", SecurityConfig.GetEnvironmentName(CreateConfig()))
@@ -93,7 +96,7 @@ Public Class SecurityConfigTests
             {"CORS_ORIGINS", " http://a.test , http://b.test ,, "}
         })
 
-        Assert.Equal(New String() {"http://a.test", "http://b.test"}, SecurityConfig.GetAllowedOrigins(custom))
+        Assert.Equal(CustomOrigins, SecurityConfig.GetAllowedOrigins(custom))
         Assert.Contains("http://localhost:8065", SecurityConfig.GetAllowedOrigins(CreateConfig()))
     End Sub
 

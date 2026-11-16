@@ -25,24 +25,12 @@ Public Class GamesController
     ''' <summary><c>GET /api/games?platform=...&amp;page=&amp;limit=</c></summary>
     <HttpGet>
     Public Async Function GetGames(
-        <FromQuery> Optional platform As String = Nothing,
-        <FromQuery> Optional genre As String = Nothing,
-        <FromQuery> Optional year As String = Nothing,
-        <FromQuery> Optional decade As String = Nothing,
-        <FromQuery> Optional players As String = Nothing,
-        <FromQuery> Optional sort As String = Nothing,
+        <FromQuery> filters As GameFilters,
         <FromQuery> Optional page As Integer = 1,
         <FromQuery> Optional limit As Integer = 10
     ) As Task(Of IActionResult)
 
-        Dim filters = New GameFilters With {
-            .platform = platform,
-            .genre = genre,
-            .year = year,
-            .decade = decade,
-            .players = players,
-            .sort = sort
-        }
+        If filters Is Nothing Then filters = New GameFilters()
 
         Return Ok(Await _gameService.GetGamesAsync(filters, page, limit))
     End Function

@@ -7,6 +7,8 @@
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
     <CoverletOutputFormat>opencover</CoverletOutputFormat>
     <CoverletOutput>../TestResults/coverage.xml</CoverletOutput>
+    <!-- Analisis estricto: evita conversiones implicitas, late binding y Object. -->
+    <OptionStrict>On</OptionStrict>
   </PropertyGroup>
 
   <ItemGroup>

@@ -53,13 +53,19 @@ Public Module SecurityConfig
         "https://tudominio.com"
     }
 
+    ' Las expresiones regulares se ejecutan sobre entrada del cliente: el timeout
+    ' acota el tiempo de evaluacion y evita ReDoS por backtracking catastrofico.
+    Private Const RegexTimeoutSeconds As Integer = 1
+
     Private ReadOnly LocalOriginPattern As New Regex(
         "^http://(localhost|127\.0\.0\.1)(:\d+)?$",
-        RegexOptions.IgnoreCase Or RegexOptions.Compiled)
+        RegexOptions.IgnoreCase Or RegexOptions.Compiled,
+        TimeSpan.FromSeconds(RegexTimeoutSeconds))
 
     Private ReadOnly DurationPattern As New Regex(
         "^\s*(\d+)\s*([smhd]?)\s*$",
-        RegexOptions.IgnoreCase Or RegexOptions.Compiled)
+        RegexOptions.IgnoreCase Or RegexOptions.Compiled,
+        TimeSpan.FromSeconds(RegexTimeoutSeconds))
 
     ''' <summary>Lee una cadena de configuración; <c>fallback</c> si falta o está en blanco.</summary>
     Public Function GetValue(config As IConfiguration, name As String, fallback As String) As String

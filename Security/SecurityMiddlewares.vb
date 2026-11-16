@@ -49,10 +49,9 @@ Public Class SecurityHeadersMiddleware
         Next
 
         ' Swagger UI usa scripts y estilos inline: se sirve sin CSP, como en Node.
-        If Not context.Request.Path.StartsWithSegments("/api-docs") Then
-            If Not context.Response.Headers.ContainsKey("Content-Security-Policy") Then
-                context.Response.Headers("Content-Security-Policy") = ContentSecurityPolicy
-            End If
+        If Not context.Request.Path.StartsWithSegments("/api-docs") AndAlso
+            Not context.Response.Headers.ContainsKey("Content-Security-Policy") Then
+            context.Response.Headers("Content-Security-Policy") = ContentSecurityPolicy
         End If
 
         Await _next(context)
@@ -154,14 +153,17 @@ Public Class RateLimitMiddleware
         Dim resetSeconds = Math.Max(CInt(Math.Ceiling(bucket.WindowStart + _options.windowSeconds - now)), 0)
 
         If bucket.Count > _options.limit Then
-            context.Response.StatusCode = 429
-            context.Response.ContentType = "application/json"
-            context.Response.Headers("RateLimit-Limit") = _options.limit.ToString()
-            context.Response.Headers("RateLimit-Remaining") = "0"
-            context.Response.Headers("RateLimit-Reset") = resetSeconds.ToString()
-            context.Response.Headers("RateLimit-Policy") = $"{_options.limit};w={_options.windowSeconds}"
-            context.Response.Headers("Retry-After") = retryAfter.ToString()
-            Await context.Response.WriteAsync("{""error"":""" & _options.message & """}")
+            With context.Response
+                .StatusCode = 429
+                .ContentType = "application/json"
+                .Headers("RateLimit-Limit") = _options.limit.ToString()
+                .Headers("RateLimit-Remaining") = "0"
+                .Headers("RateLimit-Reset") = resetSeconds.ToString()
+                .Headers("RateLimit-Policy") = $"{_options.limit};w={_options.windowSeconds}"
+                .Headers("Retry-After") = retryAfter.ToString()
+                Await .WriteAsync("{""error"":""" & _options.message & """}")
+            End With
+
             Return
         End If
 
