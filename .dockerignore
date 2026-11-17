@@ -35,3 +35,6 @@ Dockerfile
 # Other
 *.tmp
 *.bak
+
+# Solutions (Dockerfiles build the .vbproj directly)
+*.sln
